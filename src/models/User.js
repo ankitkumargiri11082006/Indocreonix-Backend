@@ -63,6 +63,13 @@ const userSchema = new mongoose.Schema(
 )
 
 userSchema.pre('save', async function preSave(next) {
+  if (this.isNew) {
+    const superadminCount = await this.constructor.countDocuments({ role: 'superadmin' })
+    if (superadminCount === 0) {
+      this.role = 'superadmin'
+    }
+  }
+
   if (!this.permissions) {
     this.permissions = { ...DEFAULT_ADMIN_PERMISSIONS }
   }

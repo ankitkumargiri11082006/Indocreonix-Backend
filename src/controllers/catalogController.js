@@ -3,6 +3,7 @@ import { ApiError } from '../utils/apiError.js'
 import { Service } from '../models/Service.js'
 import { Client } from '../models/Client.js'
 import { Project } from '../models/Project.js'
+import { cloudinary } from '../config/cloudinary.js'
 
 function parseTags(value) {
   if (!value) return []
@@ -11,6 +12,27 @@ function parseTags(value) {
     .split(',')
     .map((tag) => tag.trim())
     .filter(Boolean)
+}
+
+function extractCloudinaryPublicId(assetUrl = '') {
+  if (!assetUrl || typeof assetUrl !== 'string') return ''
+
+  const uploadSegment = '/upload/'
+  const uploadIndex = assetUrl.indexOf(uploadSegment)
+  if (uploadIndex === -1) return ''
+
+  let pathAfterUpload = assetUrl.slice(uploadIndex + uploadSegment.length)
+  pathAfterUpload = pathAfterUpload.replace(/^v\d+\//, '')
+
+  const publicId = pathAfterUpload.replace(/\.[^/.]+$/, '')
+  return decodeURIComponent(publicId)
+}
+
+async function deleteCloudinaryImageByUrl(assetUrl) {
+  const publicId = extractCloudinaryPublicId(assetUrl)
+  if (!publicId) return
+
+  await cloudinary.uploader.destroy(publicId, { resource_type: 'image' })
 }
 
 function crudHandlers(Model) {
@@ -39,6 +61,12 @@ function crudHandlers(Model) {
     remove: asyncHandler(async (req, res) => {
       const item = await Model.findById(req.params.id)
       if (!item) throw new ApiError(404, 'Item not found')
+
+      const imageUrl = item.image || item.logo || ''
+      if (imageUrl) {
+        await deleteCloudinaryImageByUrl(imageUrl)
+      }
+
       await item.deleteOne()
       res.json({ message: 'Deleted' })
     }),

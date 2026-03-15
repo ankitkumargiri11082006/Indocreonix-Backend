@@ -244,3 +244,22 @@ export const updateApplicationStatus = asyncHandler(async (req, res) => {
 
   res.json({ message: 'Application updated', item })
 })
+
+export const deleteApplication = asyncHandler(async (req, res) => {
+  const item = await CareerApplication.findById(req.params.id)
+
+  if (!item) throw new ApiError(404, 'Application not found')
+
+  if (item.cvPublicId) {
+    await cloudinary.uploader.destroy(item.cvPublicId, { resource_type: 'raw' })
+  }
+
+  await item.deleteOne()
+
+  await createAuditLog(req, 'DELETE_CAREER_APPLICATION', 'CareerApplication', req.params.id, {
+    roleType: item.roleType,
+    hadCv: Boolean(item.cvPublicId),
+  })
+
+  res.json({ message: 'Application deleted' })
+})

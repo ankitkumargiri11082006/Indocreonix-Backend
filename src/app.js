@@ -20,6 +20,33 @@ import { errorHandler, notFound } from './middlewares/errorHandler.js'
 
 const app = express()
 
+function isAllowedOrigin(origin) {
+  if (!origin) return true
+
+  if (env.corsOrigins.includes(origin)) {
+    return true
+  }
+
+  if (env.nodeEnv !== 'production') {
+    const localhostPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i
+    if (localhostPattern.test(origin)) {
+      return true
+    }
+  }
+
+  return env.corsOrigins.some((allowedOrigin) => {
+    if (!allowedOrigin.includes('*')) {
+      return false
+    }
+
+    const escaped = allowedOrigin
+      .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*/g, '.*')
+    const wildcardRegex = new RegExp(`^${escaped}$`, 'i')
+    return wildcardRegex.test(origin)
+  })
+}
+
 app.disable('x-powered-by')
 app.set('etag', false)
 
@@ -27,14 +54,11 @@ app.use(helmet())
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) {
-        callback(null, true)
-        return
-      }
-
-      callback(null, env.corsOrigins.includes(origin))
+      callback(null, isAllowedOrigin(origin))
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    optionsSuccessStatus: 204,
   })
 )
 app.use(express.json({ limit: '1mb' }))

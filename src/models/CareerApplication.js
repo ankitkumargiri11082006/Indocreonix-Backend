@@ -30,6 +30,15 @@ const careerApplicationSchema = new mongoose.Schema(
       enum: ['new', 'reviewing', 'shortlisted', 'rejected', 'hired'],
       default: 'new',
     },
+    isUnreadForAdmin: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+    lastViewedByAdminAt: {
+      type: Date,
+      default: null,
+    },
     adminNotes: { type: String, default: '' },
   },
   { timestamps: true }

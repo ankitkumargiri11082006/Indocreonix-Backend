@@ -12,6 +12,15 @@ const contactLeadSchema = new mongoose.Schema(
       enum: ['new', 'in_progress', 'closed'],
       default: 'new',
     },
+    isUnreadForAdmin: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+    lastViewedByAdminAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 )

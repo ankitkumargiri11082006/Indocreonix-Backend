@@ -166,6 +166,16 @@ export const getApplications = asyncHandler(async (req, res) => {
     cvUrl: getCloudinaryCvUrl(item.cvPublicId) || item.cvUrl || '',
   }))
 
+  await CareerApplication.updateMany(
+    { isUnreadForAdmin: true },
+    {
+      $set: {
+        isUnreadForAdmin: false,
+        lastViewedByAdminAt: new Date(),
+      },
+    }
+  )
+
   res.json({ items: normalizedItems })
 })
 
@@ -234,6 +244,10 @@ export const updateApplicationStatus = asyncHandler(async (req, res) => {
 
   if (status) item.status = status
   if (typeof adminNotes === 'string') item.adminNotes = adminNotes
+  if (item.isUnreadForAdmin) {
+    item.isUnreadForAdmin = false
+    item.lastViewedByAdminAt = new Date()
+  }
 
   await item.save()
 

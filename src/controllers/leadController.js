@@ -16,6 +16,17 @@ export const createLead = asyncHandler(async (req, res) => {
 
 export const getLeads = asyncHandler(async (_req, res) => {
   const leads = await ContactLead.find().sort({ createdAt: -1 })
+
+  await ContactLead.updateMany(
+    { isUnreadForAdmin: true },
+    {
+      $set: {
+        isUnreadForAdmin: false,
+        lastViewedByAdminAt: new Date(),
+      },
+    }
+  )
+
   res.json({ leads })
 })
 
@@ -29,6 +40,11 @@ export const updateLead = asyncHandler(async (req, res) => {
 
   if (req.body.status) {
     lead.status = req.body.status
+  }
+
+  if (lead.isUnreadForAdmin) {
+    lead.isUnreadForAdmin = false
+    lead.lastViewedByAdminAt = new Date()
   }
 
   await lead.save()

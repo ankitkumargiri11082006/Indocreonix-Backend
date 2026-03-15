@@ -97,21 +97,21 @@ app.get('/favicon.ico', (_req, res) => {
   res.status(204).end()
 })
 
-app.get('/api/health', (_req, res) => {
+app.get(['/api/health', '/health'], (_req, res) => {
   res.json({ status: 'ok', service: 'indocreonix-backend' })
 })
 
-app.use('/api/auth', authRoutes)
-app.use('/api/dashboard', dashboardRoutes)
-app.use('/api/settings', settingsRoutes)
-app.use('/api/media', mediaRoutes)
-app.use('/api/users', userRoutes)
-app.use('/api/leads', leadRoutes)
-app.use('/api/services', serviceRoutes)
-app.use('/api/clients', clientRoutes)
-app.use('/api/projects', projectRoutes)
-app.use('/api/careers', careerRoutes)
-app.use('/api/audit-logs', auditRoutes)
+app.use(['/api/auth', '/auth'], authRoutes)
+app.use(['/api/dashboard', '/dashboard'], dashboardRoutes)
+app.use(['/api/settings', '/settings'], settingsRoutes)
+app.use(['/api/media', '/media'], mediaRoutes)
+app.use(['/api/users', '/users'], userRoutes)
+app.use(['/api/leads', '/leads'], leadRoutes)
+app.use(['/api/services', '/services'], serviceRoutes)
+app.use(['/api/clients', '/clients'], clientRoutes)
+app.use(['/api/projects', '/projects'], projectRoutes)
+app.use(['/api/careers', '/careers'], careerRoutes)
+app.use(['/api/audit-logs', '/audit-logs'], auditRoutes)
 
 app.use(notFound)
 app.use(errorHandler)

@@ -2,7 +2,7 @@ import { asyncHandler } from '../utils/asyncHandler.js'
 import { User } from '../models/User.js'
 import { ApiError } from '../utils/apiError.js'
 import { cloudinary } from '../config/cloudinary.js'
-import { DEFAULT_ADMIN_PERMISSIONS, normalizePermissions } from '../constants/adminPermissions.js'
+import { DEFAULT_ADMIN_PERMISSIONS, FULL_ADMIN_PERMISSIONS, normalizePermissions } from '../constants/adminPermissions.js'
 
 function sanitizeUser(user) {
   return {
@@ -75,8 +75,16 @@ export const updateUserRole = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'User not found')
   }
 
+  const previousRole = user.role
+
   if (role) {
     user.role = role
+
+    if (role === 'superadmin') {
+      user.permissions = { ...FULL_ADMIN_PERMISSIONS }
+    } else if (role === 'admin' && previousRole !== 'admin') {
+      user.permissions = { ...DEFAULT_ADMIN_PERMISSIONS }
+    }
   }
 
   if (typeof isActive === 'boolean') {
@@ -105,7 +113,6 @@ export const updateAdminPermissions = asyncHandler(async (req, res) => {
   const nextPermissions = normalizePermissions(req.body.permissions || {})
   targetUser.permissions = {
     ...DEFAULT_ADMIN_PERMISSIONS,
-    ...(targetUser.permissions || {}),
     ...nextPermissions,
   }
 

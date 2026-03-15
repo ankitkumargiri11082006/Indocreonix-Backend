@@ -17,6 +17,11 @@ export const ADMIN_PERMISSION_KEYS = [
 ]
 
 export const DEFAULT_ADMIN_PERMISSIONS = ADMIN_PERMISSION_KEYS.reduce((accumulator, key) => {
+  accumulator[key] = false
+  return accumulator
+}, {})
+
+export const FULL_ADMIN_PERMISSIONS = ADMIN_PERMISSION_KEYS.reduce((accumulator, key) => {
   accumulator[key] = true
   return accumulator
 }, {})

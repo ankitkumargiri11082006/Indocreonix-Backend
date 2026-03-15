@@ -26,7 +26,14 @@ app.set('etag', false)
 app.use(helmet())
 app.use(
   cors({
-    origin: env.corsOrigin,
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true)
+        return
+      }
+
+      callback(null, env.corsOrigins.includes(origin))
+    },
     credentials: true,
   })
 )

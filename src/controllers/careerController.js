@@ -26,14 +26,40 @@ function csvEscape(value) {
   return `"${text.replace(/"/g, '""')}"`
 }
 
+function sanitizeCvFileBaseName(originalname = '') {
+  const withoutExt = originalname.replace(/\.pdf$/i, '')
+  const sanitized = withoutExt
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  return sanitized || 'cv-file'
+}
+
+function getCloudinaryCvUrl(publicId) {
+  if (!publicId) return ''
+
+  return cloudinary.url(publicId, {
+    resource_type: 'raw',
+    type: 'upload',
+    secure: true,
+    format: 'pdf',
+  })
+}
+
 function uploadPdfToCloudinary(fileBuffer, originalname) {
   return new Promise((resolve, reject) => {
+    const safeBaseName = sanitizeCvFileBaseName(originalname)
+
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder: 'indocreonix/cv',
         resource_type: 'raw',
-        format: 'pdf',
-        public_id: `cv-${Date.now()}-${originalname?.replace(/\s+/g, '-').toLowerCase()}`,
+        public_id: `cv-${Date.now()}-${safeBaseName}`,
+        use_filename: false,
+        unique_filename: false,
+        overwrite: false,
       },
       (error, result) => {
         if (error) return reject(error)
@@ -101,6 +127,7 @@ export const submitApplication = asyncHandler(async (req, res) => {
   }
 
   const uploaded = await uploadPdfToCloudinary(req.file.buffer, req.file.originalname)
+  const resolvedCvUrl = getCloudinaryCvUrl(uploaded.public_id) || uploaded.secure_url
 
   const item = await CareerApplication.create({
     roleType,
@@ -114,7 +141,7 @@ export const submitApplication = asyncHandler(async (req, res) => {
     experience,
     portfolio,
     message,
-    cvUrl: uploaded.secure_url,
+    cvUrl: resolvedCvUrl,
     cvPublicId: uploaded.public_id,
     cvOriginalName: req.file.originalname,
     cvBytes: req.file.size,
@@ -132,8 +159,14 @@ export const getApplications = asyncHandler(async (req, res) => {
   const items = await CareerApplication.find(query)
     .populate('opportunity', 'title type')
     .sort({ createdAt: -1 })
+    .lean()
 
-  res.json({ items })
+  const normalizedItems = items.map((item) => ({
+    ...item,
+    cvUrl: getCloudinaryCvUrl(item.cvPublicId) || item.cvUrl || '',
+  }))
+
+  res.json({ items: normalizedItems })
 })
 
 export const exportApplicationsCsv = asyncHandler(async (req, res) => {

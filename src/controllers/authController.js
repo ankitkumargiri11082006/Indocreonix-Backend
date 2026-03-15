@@ -89,3 +89,35 @@ export const me = asyncHandler(async (req, res) => {
   await ensureBootstrapSuperadmin(req.user)
   res.json({ user: sanitizeUser(req.user) })
 })
+
+export const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body
+
+  if (!currentPassword || !newPassword) {
+    throw new ApiError(400, 'Current password and new password are required')
+  }
+
+  if (newPassword.length < 6) {
+    throw new ApiError(400, 'New password must be at least 6 characters')
+  }
+
+  const user = await User.findById(req.user._id).select('+password')
+  if (!user) {
+    throw new ApiError(404, 'User not found')
+  }
+
+  const isCurrentPasswordValid = await user.comparePassword(currentPassword)
+  if (!isCurrentPasswordValid) {
+    throw new ApiError(400, 'Current password is incorrect')
+  }
+
+  const isSamePassword = await user.comparePassword(newPassword)
+  if (isSamePassword) {
+    throw new ApiError(400, 'New password must be different from current password')
+  }
+
+  user.password = newPassword
+  await user.save()
+
+  res.json({ message: 'Password changed successfully' })
+})

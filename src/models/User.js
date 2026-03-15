@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import bcrypt from 'bcryptjs'
+import { DEFAULT_ADMIN_PERMISSIONS } from '../constants/adminPermissions.js'
 
 const userSchema = new mongoose.Schema(
   {
@@ -24,8 +25,25 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['admin', 'editor', 'viewer'],
+      enum: ['superadmin', 'admin', 'editor', 'viewer'],
       default: 'viewer',
+    },
+    permissions: {
+      dashboard: { type: Boolean, default: true },
+      analytics: { type: Boolean, default: true },
+      auditLogs: { type: Boolean, default: true },
+      projects: { type: Boolean, default: true },
+      clients: { type: Boolean, default: true },
+      services: { type: Boolean, default: true },
+      content: { type: Boolean, default: true },
+      media: { type: Boolean, default: true },
+      leads: { type: Boolean, default: true },
+      openings: { type: Boolean, default: true },
+      applications: { type: Boolean, default: true },
+      users: { type: Boolean, default: true },
+      integrations: { type: Boolean, default: true },
+      settings: { type: Boolean, default: true },
+      profile: { type: Boolean, default: true },
     },
     avatarUrl: {
       type: String,
@@ -45,6 +63,14 @@ const userSchema = new mongoose.Schema(
 )
 
 userSchema.pre('save', async function preSave(next) {
+  if (!this.permissions) {
+    this.permissions = { ...DEFAULT_ADMIN_PERMISSIONS }
+  }
+
+  if (this.role === 'superadmin') {
+    this.permissions = { ...DEFAULT_ADMIN_PERMISSIONS }
+  }
+
   if (!this.isModified('password')) return next()
   const salt = await bcrypt.genSalt(12)
   this.password = await bcrypt.hash(this.password, salt)

@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken'
 import { env } from '../config/env.js'
 import { User } from '../models/User.js'
 import { ApiError } from '../utils/apiError.js'
+import { DEFAULT_ADMIN_PERMISSIONS } from '../constants/adminPermissions.js'
 
 export async function protect(req, res, next) {
   const authHeader = req.headers.authorization || ''
@@ -26,9 +27,36 @@ export async function protect(req, res, next) {
 
 export function permit(...roles) {
   return (req, res, next) => {
+    if (req.user?.role === 'superadmin') {
+      return next()
+    }
+
     if (!req.user || !roles.includes(req.user.role)) {
       return next(new ApiError(403, 'Forbidden'))
     }
+    return next()
+  }
+}
+
+export function requirePermission(permissionKey) {
+  return (req, _res, next) => {
+    if (!req.user) {
+      return next(new ApiError(403, 'Forbidden'))
+    }
+
+    if (req.user.role === 'superadmin' || req.user.role === 'editor') {
+      return next()
+    }
+
+    if (req.user.role !== 'admin') {
+      return next(new ApiError(403, 'Forbidden'))
+    }
+
+    const permissions = req.user.permissions || DEFAULT_ADMIN_PERMISSIONS
+    if (!permissions[permissionKey]) {
+      return next(new ApiError(403, 'You do not have access for this section'))
+    }
+
     return next()
   }
 }

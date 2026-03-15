@@ -2,6 +2,7 @@ import { asyncHandler } from '../utils/asyncHandler.js'
 import { User } from '../models/User.js'
 import { ApiError } from '../utils/apiError.js'
 import { cloudinary } from '../config/cloudinary.js'
+import { DEFAULT_ADMIN_PERMISSIONS, normalizePermissions } from '../constants/adminPermissions.js'
 
 function sanitizeUser(user) {
   return {
@@ -10,6 +11,7 @@ function sanitizeUser(user) {
     email: user.email,
     role: user.role,
     avatarUrl: user.avatarUrl,
+    permissions: user.permissions || DEFAULT_ADMIN_PERMISSIONS,
     isActive: user.isActive,
     lastLoginAt: user.lastLoginAt,
     createdAt: user.createdAt,
@@ -84,6 +86,35 @@ export const updateUserRole = asyncHandler(async (req, res) => {
   await user.save()
 
   res.json({ message: 'User updated' })
+})
+
+export const updateAdminPermissions = asyncHandler(async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    throw new ApiError(403, 'Only superadmin can manage admin permissions')
+  }
+
+  const targetUser = await User.findById(req.params.id)
+  if (!targetUser) {
+    throw new ApiError(404, 'User not found')
+  }
+
+  if (targetUser.role !== 'admin') {
+    throw new ApiError(400, 'Permissions can only be updated for admin users')
+  }
+
+  const nextPermissions = normalizePermissions(req.body.permissions || {})
+  targetUser.permissions = {
+    ...DEFAULT_ADMIN_PERMISSIONS,
+    ...(targetUser.permissions || {}),
+    ...nextPermissions,
+  }
+
+  await targetUser.save()
+
+  res.json({
+    message: 'Admin permissions updated',
+    user: sanitizeUser(targetUser),
+  })
 })
 
 export const updateMyAvatar = asyncHandler(async (req, res) => {

@@ -2,6 +2,7 @@ import { asyncHandler } from '../utils/asyncHandler.js'
 import { ApiError } from '../utils/apiError.js'
 import { User } from '../models/User.js'
 import { signToken } from '../utils/token.js'
+import { DEFAULT_ADMIN_PERMISSIONS } from '../constants/adminPermissions.js'
 
 function sanitizeUser(user) {
   return {
@@ -10,10 +11,22 @@ function sanitizeUser(user) {
     email: user.email,
     role: user.role,
     avatarUrl: user.avatarUrl,
+    permissions: user.permissions || DEFAULT_ADMIN_PERMISSIONS,
     isActive: user.isActive,
     lastLoginAt: user.lastLoginAt,
     createdAt: user.createdAt,
   }
+}
+
+async function ensureBootstrapSuperadmin(user) {
+  if (user.role !== 'admin') return user
+
+  const superadminCount = await User.countDocuments({ role: 'superadmin' })
+  if (superadminCount > 0) return user
+
+  user.role = 'superadmin'
+  await user.save()
+  return user
 }
 
 export const signup = asyncHandler(async (req, res) => {
@@ -34,7 +47,7 @@ export const signup = asyncHandler(async (req, res) => {
     name,
     email,
     password,
-    role: usersCount === 0 ? 'admin' : 'viewer',
+    role: usersCount === 0 ? 'superadmin' : 'viewer',
   })
 
   const token = signToken(user._id.toString())
@@ -58,6 +71,8 @@ export const login = asyncHandler(async (req, res) => {
     throw new ApiError(401, 'Invalid credentials')
   }
 
+  await ensureBootstrapSuperadmin(user)
+
   user.lastLoginAt = new Date()
   await user.save()
 
@@ -71,5 +86,6 @@ export const login = asyncHandler(async (req, res) => {
 })
 
 export const me = asyncHandler(async (req, res) => {
+  await ensureBootstrapSuperadmin(req.user)
   res.json({ user: sanitizeUser(req.user) })
 })

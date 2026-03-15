@@ -1,11 +1,11 @@
 import { Router } from 'express'
 import { createLead, getLeads, updateLead } from '../controllers/leadController.js'
-import { permit, protect } from '../middlewares/auth.js'
+import { permit, protect, requirePermission } from '../middlewares/auth.js'
 
 const router = Router()
 
 router.post('/', createLead)
-router.get('/', protect, permit('admin', 'editor'), getLeads)
-router.patch('/:id', protect, permit('admin', 'editor'), updateLead)
+router.get('/', protect, permit('admin', 'editor'), requirePermission('leads'), getLeads)
+router.patch('/:id', protect, permit('admin', 'editor'), requirePermission('leads'), updateLead)
 
 export default router

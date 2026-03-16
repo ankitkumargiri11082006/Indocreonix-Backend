@@ -50,7 +50,22 @@ function getCloudinaryCvUrl(publicId, resourceType = 'image') {
   })
 }
 
-async function resolveCloudinaryCvSecureUrl(publicId, preferredResourceType = 'image') {
+function getSignedCloudinaryCvUrl(publicId, resourceType = 'image') {
+  if (!publicId) return ''
+
+  const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60
+
+  return cloudinary.url(publicId, {
+    resource_type: resourceType,
+    type: 'upload',
+    secure: true,
+    sign_url: true,
+    expires_at: expiresAt,
+    ...(resourceType === 'image' ? { format: 'pdf' } : {}),
+  })
+}
+
+async function resolveCloudinaryCvDelivery(publicId, preferredResourceType = 'image') {
   if (!publicId) return ''
 
   const resourceTypes = preferredResourceType === 'raw' ? ['raw', 'image'] : ['image', 'raw']
@@ -62,14 +77,14 @@ async function resolveCloudinaryCvSecureUrl(publicId, preferredResourceType = 'i
       })
 
       if (resource?.secure_url) {
-        return resource.secure_url
+        return getSignedCloudinaryCvUrl(publicId, resourceType)
       }
     } catch {
       continue
     }
   }
 
-  return getCloudinaryCvUrl(publicId, preferredResourceType)
+  return getSignedCloudinaryCvUrl(publicId, preferredResourceType) || getCloudinaryCvUrl(publicId, preferredResourceType)
 }
 
 async function destroyCvAsset(publicId, preferredResourceType = 'image') {
@@ -234,7 +249,7 @@ export const getApplications = asyncHandler(async (req, res) => {
       ...item,
       cvUrl:
         (item.cvPublicId
-          ? await resolveCloudinaryCvSecureUrl(item.cvPublicId, item.cvResourceType || 'raw')
+          ? await resolveCloudinaryCvDelivery(item.cvPublicId, item.cvResourceType || 'raw')
           : '') ||
         item.cvUrl ||
         '',

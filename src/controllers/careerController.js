@@ -40,15 +40,52 @@ function sanitizeCvFileBaseName(originalname = '') {
   return sanitized || 'cv-file'
 }
 
-function getCloudinaryCvUrl(publicId) {
+function getCloudinaryCvUrl(publicId, resourceType = 'image') {
   if (!publicId) return ''
 
   return cloudinary.url(publicId, {
-    resource_type: 'raw',
-    type: 'upload',
+    resource_type: resourceType,
     secure: true,
-    format: 'pdf',
+    ...(resourceType === 'image' ? { format: 'pdf' } : {}),
   })
+}
+
+async function resolveCloudinaryCvSecureUrl(publicId, preferredResourceType = 'image') {
+  if (!publicId) return ''
+
+  const resourceTypes = preferredResourceType === 'raw' ? ['raw', 'image'] : ['image', 'raw']
+
+  for (const resourceType of resourceTypes) {
+    try {
+      const resource = await cloudinary.api.resource(publicId, {
+        resource_type: resourceType,
+      })
+
+      if (resource?.secure_url) {
+        return resource.secure_url
+      }
+    } catch {
+      continue
+    }
+  }
+
+  return getCloudinaryCvUrl(publicId, preferredResourceType)
+}
+
+async function destroyCvAsset(publicId, preferredResourceType = 'image') {
+  if (!publicId) return
+
+  const resourceTypes = preferredResourceType === 'raw' ? ['raw', 'image'] : ['image', 'raw']
+  for (const resourceType of resourceTypes) {
+    try {
+      const result = await cloudinary.uploader.destroy(publicId, { resource_type: resourceType })
+      if (result?.result === 'ok') {
+        return
+      }
+    } catch {
+      continue
+    }
+  }
 }
 
 function uploadPdfToCloudinary(fileBuffer, originalname) {
@@ -58,7 +95,8 @@ function uploadPdfToCloudinary(fileBuffer, originalname) {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder: 'indocreonix/cv',
-        resource_type: 'raw',
+        resource_type: 'image',
+        format: 'pdf',
         public_id: `cv-${Date.now()}-${safeBaseName}`,
         use_filename: false,
         unique_filename: false,
@@ -154,7 +192,7 @@ export const submitApplication = asyncHandler(async (req, res) => {
   }
 
   const uploaded = await uploadPdfToCloudinary(req.file.buffer, req.file.originalname)
-  const resolvedCvUrl = getCloudinaryCvUrl(uploaded.public_id) || uploaded.secure_url
+  const resolvedCvUrl = uploaded.secure_url || getCloudinaryCvUrl(uploaded.public_id, uploaded.resource_type)
 
   const item = await CareerApplication.create({
     roleType,
@@ -172,6 +210,7 @@ export const submitApplication = asyncHandler(async (req, res) => {
     consentAcceptedAt: new Date(),
     cvUrl: resolvedCvUrl,
     cvPublicId: uploaded.public_id,
+    cvResourceType: uploaded.resource_type || 'image',
     cvOriginalName: req.file.originalname,
     cvBytes: req.file.size,
   })
@@ -190,10 +229,17 @@ export const getApplications = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
     .lean()
 
-  const normalizedItems = items.map((item) => ({
-    ...item,
-    cvUrl: getCloudinaryCvUrl(item.cvPublicId) || item.cvUrl || '',
-  }))
+  const normalizedItems = await Promise.all(
+    items.map(async (item) => ({
+      ...item,
+      cvUrl:
+        (item.cvPublicId
+          ? await resolveCloudinaryCvSecureUrl(item.cvPublicId, item.cvResourceType || 'raw')
+          : '') ||
+        item.cvUrl ||
+        '',
+    }))
+  )
 
   await CareerApplication.updateMany(
     { isUnreadForAdmin: true },
@@ -294,7 +340,7 @@ export const deleteApplication = asyncHandler(async (req, res) => {
   if (!item) throw new ApiError(404, 'Application not found')
 
   if (item.cvPublicId) {
-    await cloudinary.uploader.destroy(item.cvPublicId, { resource_type: 'raw' })
+    await destroyCvAsset(item.cvPublicId, item.cvResourceType || 'raw')
   }
 
   await item.deleteOne()

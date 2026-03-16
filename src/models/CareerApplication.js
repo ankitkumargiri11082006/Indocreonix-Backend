@@ -31,6 +31,11 @@ const careerApplicationSchema = new mongoose.Schema(
     },
     cvUrl: { type: String, required: true },
     cvPublicId: { type: String, required: true },
+    cvResourceType: {
+      type: String,
+      enum: ['image', 'raw'],
+      default: 'raw',
+    },
     cvOriginalName: { type: String, default: '' },
     cvBytes: { type: Number, default: 0 },
     status: {

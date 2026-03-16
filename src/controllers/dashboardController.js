@@ -3,6 +3,8 @@ import { User } from '../models/User.js'
 import { ContactLead } from '../models/ContactLead.js'
 import { CareerApplication } from '../models/CareerApplication.js'
 import { MediaAsset } from '../models/MediaAsset.js'
+import { ProjectOrder } from '../models/ProjectOrder.js'
+import { getCached, setCached } from '../utils/publicCache.js'
 
 function canAccessPermission(user, permissionKey) {
   if (!user) return false
@@ -41,16 +43,29 @@ export const getDashboardStats = asyncHandler(async (_req, res) => {
 export const getSectionIndicators = asyncHandler(async (req, res) => {
   const canViewLeads = canAccessPermission(req.user, 'leads')
   const canViewApplications = canAccessPermission(req.user, 'applications')
+  const canViewOrders = canAccessPermission(req.user, 'orders')
 
-  const [leadsUnreadCount, applicationsUnreadCount] = await Promise.all([
+  const cacheKey = [Number(canViewLeads), Number(canViewApplications), Number(canViewOrders)].join('-')
+  const cachedIndicators = getCached('dashboard:indicators', cacheKey)
+  if (cachedIndicators) {
+    return res.json(cachedIndicators)
+  }
+
+  const [leadsUnreadCount, applicationsUnreadCount, ordersUnreadCount] = await Promise.all([
     canViewLeads ? ContactLead.countDocuments({ isUnreadForAdmin: true }) : 0,
     canViewApplications ? CareerApplication.countDocuments({ isUnreadForAdmin: true }) : 0,
+    canViewOrders ? ProjectOrder.countDocuments({ isUnreadForAdmin: true }) : 0,
   ])
 
-  res.json({
+  const response = {
     sections: {
       leads: leadsUnreadCount,
       applications: applicationsUnreadCount,
+      orders: ordersUnreadCount,
     },
-  })
+  }
+
+  setCached('dashboard:indicators', response, { key: cacheKey, ttlMs: 10_000 })
+
+  res.json(response)
 })

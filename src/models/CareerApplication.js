@@ -21,6 +21,14 @@ const careerApplicationSchema = new mongoose.Schema(
     experience: { type: String, required: true, trim: true },
     portfolio: { type: String, default: '' },
     message: { type: String, required: true, trim: true },
+    consentAccepted: {
+      type: Boolean,
+      default: false,
+    },
+    consentAcceptedAt: {
+      type: Date,
+      default: null,
+    },
     cvUrl: { type: String, required: true },
     cvPublicId: { type: String, required: true },
     cvOriginalName: { type: String, default: '' },

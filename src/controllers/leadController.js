@@ -50,3 +50,15 @@ export const updateLead = asyncHandler(async (req, res) => {
   await lead.save()
   res.json({ message: 'Lead updated', lead })
 })
+
+export const deleteLead = asyncHandler(async (req, res) => {
+  const { id } = req.params
+  const lead = await ContactLead.findById(id)
+
+  if (!lead) {
+    throw new ApiError(404, 'Lead not found')
+  }
+
+  await lead.deleteOne()
+  res.json({ message: 'Lead deleted' })
+})

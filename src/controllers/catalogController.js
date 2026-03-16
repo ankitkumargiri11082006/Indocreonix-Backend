@@ -62,6 +62,10 @@ function crudHandlers(Model) {
     create: asyncHandler(async (req, res) => {
       const payload = { ...req.body }
       if ('tags' in payload) payload.tags = parseTags(payload.tags)
+      if (modelName === 'project') {
+        payload.developerName =
+          payload.developerName || payload.developer || payload.developerCredit || payload.developer_name || ''
+      }
       const item = await Model.create(payload)
       clearCacheByNamespace(cacheNamespace)
       res.status(201).json({ message: 'Created', item })
@@ -69,6 +73,10 @@ function crudHandlers(Model) {
     update: asyncHandler(async (req, res) => {
       const payload = { ...req.body }
       if ('tags' in payload) payload.tags = parseTags(payload.tags)
+      if (modelName === 'project') {
+        payload.developerName =
+          payload.developerName || payload.developer || payload.developerCredit || payload.developer_name || ''
+      }
       const item = await Model.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true })
       if (!item) throw new ApiError(404, 'Item not found')
       clearCacheByNamespace(cacheNamespace)

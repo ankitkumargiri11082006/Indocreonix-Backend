@@ -8,6 +8,7 @@ export const ADMIN_PERMISSION_KEYS = [
   'content',
   'media',
   'leads',
+  'orders',
   'openings',
   'applications',
   'users',

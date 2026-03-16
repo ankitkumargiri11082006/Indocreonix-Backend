@@ -137,6 +137,7 @@ export const submitApplication = asyncHandler(async (req, res) => {
     experience,
     portfolio,
     message,
+    consentAccepted,
   } = req.body
 
   if (!roleType || !fullName || !email || !phone || !city || !qualification || !skills || !experience || !message) {
@@ -145,6 +146,11 @@ export const submitApplication = asyncHandler(async (req, res) => {
 
   if (!req.file) {
     throw new ApiError(400, 'CV PDF is required')
+  }
+
+  const hasAcceptedConsent = String(consentAccepted).toLowerCase() === 'true'
+  if (!hasAcceptedConsent) {
+    throw new ApiError(400, 'You must accept Indocreonix Terms and Privacy Policy')
   }
 
   const uploaded = await uploadPdfToCloudinary(req.file.buffer, req.file.originalname)
@@ -162,6 +168,8 @@ export const submitApplication = asyncHandler(async (req, res) => {
     experience,
     portfolio,
     message,
+    consentAccepted: true,
+    consentAcceptedAt: new Date(),
     cvUrl: resolvedCvUrl,
     cvPublicId: uploaded.public_id,
     cvOriginalName: req.file.originalname,

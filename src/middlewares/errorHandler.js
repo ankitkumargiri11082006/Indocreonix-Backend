@@ -4,10 +4,14 @@ export function notFound(_req, res) {
 
 export function errorHandler(err, _req, res, _next) {
   if (err?.code === 'LIMIT_FILE_SIZE') {
-    return res.status(400).json({ message: 'CV file size must be 2MB or less' })
+    return res.status(400).json({ message: 'Uploaded file size exceeds the allowed limit' })
   }
 
-  if (err?.message === 'Only PDF CV files are allowed') {
+  if (
+    err?.message === 'Only PDF CV files are allowed' ||
+    err?.message === 'Only PDF, DOC, DOCX, PNG and JPG files are allowed' ||
+    err?.message === 'PRD must be uploaded as a PDF file'
+  ) {
     return res.status(400).json({ message: err.message })
   }
 

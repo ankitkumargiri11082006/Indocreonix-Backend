@@ -5,6 +5,7 @@ const projectSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     summary: { type: String, required: true, trim: true },
     details: { type: String, default: '' },
+    developerName: { type: String, default: '', trim: true },
     logo: { type: String, default: '' },
     website: { type: String, default: '' },
     category: { type: String, default: 'General' },

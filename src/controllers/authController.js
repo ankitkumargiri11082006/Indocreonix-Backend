@@ -29,36 +29,6 @@ async function ensureBootstrapSuperadmin(user) {
   return user
 }
 
-export const signup = asyncHandler(async (req, res) => {
-  const { name, email, password } = req.body
-
-  if (!name || !email || !password) {
-    throw new ApiError(400, 'Name, email and password are required')
-  }
-
-  const existing = await User.findOne({ email })
-  if (existing) {
-    throw new ApiError(409, 'Email already registered')
-  }
-
-  const usersCount = await User.countDocuments()
-
-  const user = await User.create({
-    name,
-    email,
-    password,
-    role: usersCount === 0 ? 'superadmin' : 'viewer',
-  })
-
-  const token = signToken(user._id.toString())
-
-  res.status(201).json({
-    message: 'Signup successful',
-    token,
-    user: sanitizeUser(user),
-  })
-})
-
 export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body
 

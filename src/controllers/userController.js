@@ -3,6 +3,38 @@ import { User } from '../models/User.js'
 import { ApiError } from '../utils/apiError.js'
 import { cloudinary } from '../config/cloudinary.js'
 import { DEFAULT_ADMIN_PERMISSIONS, FULL_ADMIN_PERMISSIONS, normalizePermissions } from '../constants/adminPermissions.js'
+import { createAdminAuditLog } from '../utils/auditLog.js'
+
+const MANAGEABLE_ROLES = ['admin', 'editor', 'viewer']
+
+function buildUserSummary(user) {
+  return {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    isActive: user.isActive,
+  }
+}
+
+function buildPermissionDelta(previousPermissions = {}, nextPermissions = {}) {
+  const granted = []
+  const revoked = []
+
+  for (const key of Object.keys(DEFAULT_ADMIN_PERMISSIONS)) {
+    const previousValue = Boolean(previousPermissions[key])
+    const nextValue = Boolean(nextPermissions[key])
+
+    if (previousValue === nextValue) continue
+    if (nextValue) granted.push(key)
+    else revoked.push(key)
+  }
+
+  return {
+    granted,
+    revoked,
+  }
+}
 
 function sanitizeUser(user) {
   return {
@@ -70,14 +102,30 @@ export const updateUserRole = asyncHandler(async (req, res) => {
   const { id } = req.params
   const { role, isActive } = req.body
 
+  if (!role && typeof isActive !== 'boolean') {
+    throw new ApiError(400, 'Provide role or isActive to update')
+  }
+
   const user = await User.findById(id)
   if (!user) {
     throw new ApiError(404, 'User not found')
   }
 
   const previousRole = user.role
+  const previousIsActive = user.isActive
 
   if (role) {
+    if (!MANAGEABLE_ROLES.includes(role) && role !== 'superadmin') {
+      throw new ApiError(400, 'Invalid role')
+    }
+
+    if (previousRole === 'superadmin' && role !== 'superadmin') {
+      const superadminCount = await User.countDocuments({ role: 'superadmin' })
+      if (superadminCount <= 1) {
+        throw new ApiError(400, 'Cannot demote the last superadmin')
+      }
+    }
+
     user.role = role
 
     if (role === 'superadmin') {
@@ -93,7 +141,111 @@ export const updateUserRole = asyncHandler(async (req, res) => {
 
   await user.save()
 
+  const changes = {}
+  if (previousRole !== user.role) {
+    changes.role = { from: previousRole, to: user.role }
+  }
+  if (previousIsActive !== user.isActive) {
+    changes.isActive = { from: previousIsActive, to: user.isActive }
+  }
+
+  await createAdminAuditLog(req, {
+    action: 'USER_ROLE_UPDATED',
+    entity: 'user',
+    entityId: user._id,
+    metadata: {
+      target: buildUserSummary(user),
+      changes,
+    },
+  })
+
   res.json({ message: 'User updated' })
+})
+
+export const createManagedUser = asyncHandler(async (req, res) => {
+  const { name, email, password, role } = req.body
+
+  if (!name || !email || !password || !role) {
+    throw new ApiError(400, 'Name, email, password and role are required')
+  }
+
+  if (!MANAGEABLE_ROLES.includes(role)) {
+    throw new ApiError(400, 'Role must be one of admin, editor, viewer')
+  }
+
+  const existing = await User.findOne({ email })
+  if (existing) {
+    throw new ApiError(409, 'Email already registered')
+  }
+
+  const user = await User.create({
+    name,
+    email,
+    password,
+    role,
+  })
+
+  if (role === 'admin') {
+    user.permissions = { ...DEFAULT_ADMIN_PERMISSIONS }
+    await user.save()
+  }
+
+  await createAdminAuditLog(req, {
+    action: 'USER_ROLE_ACCOUNT_CREATED',
+    entity: 'user',
+    entityId: user._id,
+    metadata: {
+      target: buildUserSummary(user),
+      createdRole: role,
+    },
+  })
+
+  res.status(201).json({
+    message: 'User created successfully',
+    user: sanitizeUser(user),
+  })
+})
+
+export const deleteUserPermanently = asyncHandler(async (req, res) => {
+  const { id } = req.params
+
+  if (req.user._id.toString() === id) {
+    throw new ApiError(400, 'You cannot delete your own account')
+  }
+
+  const user = await User.findById(id)
+  if (!user) {
+    throw new ApiError(404, 'User not found')
+  }
+
+  if (user.role === 'superadmin') {
+    const superadminCount = await User.countDocuments({ role: 'superadmin' })
+    if (superadminCount <= 1) {
+      throw new ApiError(400, 'Cannot delete the last superadmin')
+    }
+  }
+
+  if (user.avatarPublicId) {
+    try {
+      await cloudinary.uploader.destroy(user.avatarPublicId, { resource_type: 'image' })
+    } catch (_error) {}
+  }
+
+  const deletedUserSummary = buildUserSummary(user)
+
+  await User.deleteOne({ _id: user._id })
+
+  await createAdminAuditLog(req, {
+    action: 'USER_ROLE_ACCOUNT_DELETED',
+    entity: 'user',
+    entityId: deletedUserSummary.id,
+    metadata: {
+      target: deletedUserSummary,
+      deletionType: 'permanent',
+    },
+  })
+
+  res.json({ message: 'User permanently deleted' })
 })
 
 export const updateAdminPermissions = asyncHandler(async (req, res) => {
@@ -110,13 +262,35 @@ export const updateAdminPermissions = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Permissions can only be updated for admin users')
   }
 
+  const previousPermissions = normalizePermissions(targetUser.permissions || {})
   const nextPermissions = normalizePermissions(req.body.permissions || {})
+  const permissionDelta = buildPermissionDelta(previousPermissions, nextPermissions)
+
+  if (permissionDelta.granted.length === 0 && permissionDelta.revoked.length === 0) {
+    return res.json({
+      message: 'Admin permissions already up to date',
+      user: sanitizeUser(targetUser),
+    })
+  }
+
   targetUser.permissions = {
     ...DEFAULT_ADMIN_PERMISSIONS,
     ...nextPermissions,
   }
 
   await targetUser.save()
+
+  await createAdminAuditLog(req, {
+    action: 'ADMIN_PERMISSIONS_UPDATED',
+    entity: 'user',
+    entityId: targetUser._id,
+    metadata: {
+      target: buildUserSummary(targetUser),
+      grantedPermissions: permissionDelta.granted,
+      revokedPermissions: permissionDelta.revoked,
+      totalEnabledPermissions: Object.values(targetUser.permissions || {}).filter(Boolean).length,
+    },
+  })
 
   res.json({
     message: 'Admin permissions updated',

@@ -11,4 +11,6 @@ const serviceSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+serviceSchema.index({ isActive: 1, order: 1, createdAt: -1 })
+
 export const Service = mongoose.model('Service', serviceSchema)

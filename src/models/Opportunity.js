@@ -18,4 +18,6 @@ const opportunitySchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+opportunitySchema.index({ type: 1, isActive: 1, order: 1, createdAt: -1 })
+
 export const Opportunity = mongoose.model('Opportunity', opportunitySchema)

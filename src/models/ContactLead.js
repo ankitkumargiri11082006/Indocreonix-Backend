@@ -25,4 +25,7 @@ const contactLeadSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+contactLeadSchema.index({ status: 1, createdAt: -1 })
+contactLeadSchema.index({ createdAt: -1 })
+
 export const ContactLead = mongoose.model('ContactLead', contactLeadSchema)

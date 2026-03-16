@@ -4,6 +4,9 @@ import { cloudinary } from '../config/cloudinary.js'
 import { Opportunity } from '../models/Opportunity.js'
 import { CareerApplication } from '../models/CareerApplication.js'
 import { AdminAuditLog } from '../models/AdminAuditLog.js'
+import { clearCacheByNamespace, getCached, setCached } from '../utils/publicCache.js'
+
+const OPPORTUNITIES_PUBLIC_CACHE_NAMESPACE = 'careers:opportunities:public'
 
 async function createAuditLog(req, action, entity, entityId = '', metadata = {}) {
   await AdminAuditLog.create({
@@ -76,23 +79,40 @@ export const getPublicOpportunities = asyncHandler(async (req, res) => {
   const query = { isActive: true }
   if (type) query.type = type
 
-  const items = await Opportunity.find(query).sort({ order: 1, createdAt: -1 })
+  const cacheKey = type ? String(type) : 'all'
+  const cachedItems = getCached(OPPORTUNITIES_PUBLIC_CACHE_NAMESPACE, cacheKey)
+  if (cachedItems) {
+    return res.json({ items: cachedItems })
+  }
+
+  const items = await Opportunity.find(query)
+    .sort({ order: 1, createdAt: -1 })
+    .select('-__v')
+    .lean()
+
+  setCached(OPPORTUNITIES_PUBLIC_CACHE_NAMESPACE, items, {
+    key: cacheKey,
+    ttlMs: 60_000,
+  })
+
   res.json({ items })
 })
 
 export const getAdminOpportunities = asyncHandler(async (_req, res) => {
-  const items = await Opportunity.find().sort({ order: 1, createdAt: -1 })
+  const items = await Opportunity.find().sort({ order: 1, createdAt: -1 }).select('-__v').lean()
   res.json({ items })
 })
 
 export const createOpportunity = asyncHandler(async (req, res) => {
   const item = await Opportunity.create(req.body)
+  clearCacheByNamespace(OPPORTUNITIES_PUBLIC_CACHE_NAMESPACE)
   res.status(201).json({ message: 'Opportunity created', item })
 })
 
 export const updateOpportunity = asyncHandler(async (req, res) => {
   const item = await Opportunity.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
   if (!item) throw new ApiError(404, 'Opportunity not found')
+  clearCacheByNamespace(OPPORTUNITIES_PUBLIC_CACHE_NAMESPACE)
   res.json({ message: 'Opportunity updated', item })
 })
 
@@ -100,6 +120,7 @@ export const deleteOpportunity = asyncHandler(async (req, res) => {
   const item = await Opportunity.findById(req.params.id)
   if (!item) throw new ApiError(404, 'Opportunity not found')
   await item.deleteOne()
+  clearCacheByNamespace(OPPORTUNITIES_PUBLIC_CACHE_NAMESPACE)
   res.json({ message: 'Opportunity deleted' })
 })
 

@@ -44,4 +44,7 @@ const careerApplicationSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+careerApplicationSchema.index({ roleType: 1, status: 1, createdAt: -1 })
+careerApplicationSchema.index({ createdAt: -1 })
+
 export const CareerApplication = mongoose.model('CareerApplication', careerApplicationSchema)

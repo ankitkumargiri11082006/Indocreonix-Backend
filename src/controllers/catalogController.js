@@ -4,6 +4,7 @@ import { Service } from '../models/Service.js'
 import { Client } from '../models/Client.js'
 import { Project } from '../models/Project.js'
 import { cloudinary } from '../config/cloudinary.js'
+import { clearCacheByNamespace, getCached, setCached } from '../utils/publicCache.js'
 
 function parseTags(value) {
   if (!value) return []
@@ -36,19 +37,33 @@ async function deleteCloudinaryImageByUrl(assetUrl) {
 }
 
 function crudHandlers(Model) {
+  const modelName = String(Model?.modelName || 'model').toLowerCase()
+  const cacheNamespace = `catalog:${modelName}:public`
+
   return {
     listPublic: asyncHandler(async (_req, res) => {
-      const items = await Model.find({ isActive: true }).sort({ order: 1, createdAt: -1 })
+      const cachedItems = getCached(cacheNamespace)
+      if (cachedItems) {
+        return res.json({ items: cachedItems })
+      }
+
+      const items = await Model.find({ isActive: true })
+        .sort({ order: 1, createdAt: -1 })
+        .select('-__v')
+        .lean()
+
+      setCached(cacheNamespace, items, { ttlMs: 60_000 })
       res.json({ items })
     }),
     listAdmin: asyncHandler(async (_req, res) => {
-      const items = await Model.find().sort({ order: 1, createdAt: -1 })
+      const items = await Model.find().sort({ order: 1, createdAt: -1 }).select('-__v').lean()
       res.json({ items })
     }),
     create: asyncHandler(async (req, res) => {
       const payload = { ...req.body }
       if ('tags' in payload) payload.tags = parseTags(payload.tags)
       const item = await Model.create(payload)
+      clearCacheByNamespace(cacheNamespace)
       res.status(201).json({ message: 'Created', item })
     }),
     update: asyncHandler(async (req, res) => {
@@ -56,6 +71,7 @@ function crudHandlers(Model) {
       if ('tags' in payload) payload.tags = parseTags(payload.tags)
       const item = await Model.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true })
       if (!item) throw new ApiError(404, 'Item not found')
+      clearCacheByNamespace(cacheNamespace)
       res.json({ message: 'Updated', item })
     }),
     remove: asyncHandler(async (req, res) => {
@@ -68,6 +84,7 @@ function crudHandlers(Model) {
       }
 
       await item.deleteOne()
+      clearCacheByNamespace(cacheNamespace)
       res.json({ message: 'Deleted' })
     }),
   }

@@ -12,4 +12,6 @@ const clientSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+clientSchema.index({ isActive: 1, order: 1, createdAt: -1 })
+
 export const Client = mongoose.model('Client', clientSchema)

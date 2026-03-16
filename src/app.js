@@ -4,6 +4,7 @@ import cors from 'cors'
 import morgan from 'morgan'
 import cookieParser from 'cookie-parser'
 import rateLimit from 'express-rate-limit'
+import compression from 'compression'
 import { env } from './config/env.js'
 import authRoutes from './routes/authRoutes.js'
 import dashboardRoutes from './routes/dashboardRoutes.js'
@@ -48,9 +49,10 @@ function isAllowedOrigin(origin) {
 }
 
 app.disable('x-powered-by')
-app.set('etag', false)
+app.set('etag', 'weak')
 
 app.use(helmet())
+app.use(compression({ threshold: 1024 }))
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -70,7 +72,46 @@ app.use(
   })
 )
 
-app.use('/api', (_req, res, next) => {
+if (env.nodeEnv !== 'production') {
+  app.use('/api', (req, res, next) => {
+    const startTime = process.hrtime.bigint()
+    const originalEnd = res.end
+
+    res.end = function patchedEnd(...args) {
+      const endTime = process.hrtime.bigint()
+      const durationMs = Number(endTime - startTime) / 1_000_000
+      const durationRounded = durationMs.toFixed(2)
+
+      if (!res.headersSent) {
+        res.setHeader('X-Response-Time', `${durationRounded}ms`)
+      }
+
+      console.info(`[perf] ${req.method} ${req.originalUrl} ${res.statusCode} ${durationRounded}ms`)
+
+      return originalEnd.call(this, ...args)
+    }
+
+    next()
+  })
+}
+
+app.use('/api', (req, res, next) => {
+  const normalizedPath = req.path
+  const isPublicCacheableGet =
+    req.method === 'GET' &&
+    [
+      /^\/settings$/,
+      /^\/services\/public$/,
+      /^\/clients\/public$/,
+      /^\/projects\/public$/,
+      /^\/careers\/opportunities\/public$/,
+    ].some((pattern) => pattern.test(normalizedPath))
+
+  if (isPublicCacheableGet) {
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=120, stale-while-revalidate=300')
+    return next()
+  }
+
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
   res.setHeader('Pragma', 'no-cache')
   res.setHeader('Expires', '0')

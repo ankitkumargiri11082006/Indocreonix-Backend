@@ -65,6 +65,31 @@ function getSignedCloudinaryCvUrl(publicId, resourceType = 'image') {
   })
 }
 
+function getPrivateDownloadCvUrl(publicId, resourceType = 'image') {
+  if (!publicId) return ''
+
+  const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60
+
+  return cloudinary.utils.private_download_url(publicId, 'pdf', {
+    resource_type: resourceType,
+    type: 'upload',
+    expires_at: expiresAt,
+    attachment: false,
+  })
+}
+
+async function ensureCvAnonymousDelivery(publicId, resourceType = 'image') {
+  try {
+    await cloudinary.api.update(publicId, {
+      resource_type: resourceType,
+      type: 'upload',
+      access_control: [{ access_type: 'anonymous' }],
+    })
+  } catch {
+    return
+  }
+}
+
 async function resolveCloudinaryCvDelivery(publicId, preferredResourceType = 'image') {
   if (!publicId) return ''
 
@@ -77,14 +102,30 @@ async function resolveCloudinaryCvDelivery(publicId, preferredResourceType = 'im
       })
 
       if (resource?.secure_url) {
-        return getSignedCloudinaryCvUrl(publicId, resourceType)
+        const hasAnonymousAccess = Array.isArray(resource.access_control)
+          ? resource.access_control.some((entry) => entry?.access_type === 'anonymous')
+          : false
+
+        if (!hasAnonymousAccess) {
+          await ensureCvAnonymousDelivery(publicId, resourceType)
+        }
+
+        return (
+          getPrivateDownloadCvUrl(publicId, resourceType) ||
+          getSignedCloudinaryCvUrl(publicId, resourceType) ||
+          resource.secure_url
+        )
       }
     } catch {
       continue
     }
   }
 
-  return getSignedCloudinaryCvUrl(publicId, preferredResourceType) || getCloudinaryCvUrl(publicId, preferredResourceType)
+  return (
+    getSignedCloudinaryCvUrl(publicId, preferredResourceType) ||
+    getPrivateDownloadCvUrl(publicId, preferredResourceType) ||
+    getCloudinaryCvUrl(publicId, preferredResourceType)
+  )
 }
 
 async function destroyCvAsset(publicId, preferredResourceType = 'image') {
@@ -112,6 +153,7 @@ function uploadPdfToCloudinary(fileBuffer, originalname) {
         folder: 'indocreonix/cv',
         resource_type: 'image',
         format: 'pdf',
+        access_control: [{ access_type: 'anonymous' }],
         public_id: `cv-${Date.now()}-${safeBaseName}`,
         use_filename: false,
         unique_filename: false,

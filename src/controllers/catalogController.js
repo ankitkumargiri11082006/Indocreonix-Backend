@@ -3,8 +3,15 @@ import { ApiError } from '../utils/apiError.js'
 import { Service } from '../models/Service.js'
 import { Client } from '../models/Client.js'
 import { Project } from '../models/Project.js'
+import { MediaAsset } from '../models/MediaAsset.js'
 import { cloudinary } from '../config/cloudinary.js'
 import { clearCacheByNamespace, getCached, setCached } from '../utils/publicCache.js'
+
+const catalogImageReferences = [
+  { modelName: 'service', Model: Service, field: 'image' },
+  { modelName: 'client', Model: Client, field: 'logo' },
+  { modelName: 'project', Model: Project, field: 'logo' },
+]
 
 function parseTags(value) {
   if (!value) return []
@@ -13,6 +20,24 @@ function parseTags(value) {
     .split(',')
     .map((tag) => tag.trim())
     .filter(Boolean)
+}
+
+function normalizeAssetUrl(value, fieldName) {
+  if (value === undefined) return undefined
+  if (value === null) return ''
+
+  const normalizedValue = String(value).trim()
+  if (!normalizedValue) return ''
+
+  try {
+    const parsedUrl = new URL(normalizedValue)
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      throw new Error('Invalid protocol')
+    }
+    return parsedUrl.toString()
+  } catch {
+    throw new ApiError(400, `${fieldName} must be a valid URL`)
+  }
 }
 
 function extractCloudinaryPublicId(assetUrl = '') {
@@ -34,6 +59,42 @@ async function deleteCloudinaryImageByUrl(assetUrl) {
   if (!publicId) return
 
   await cloudinary.uploader.destroy(publicId, { resource_type: 'image' })
+}
+
+async function isImageUrlReferencedElsewhere({ currentModelName, currentItemId, imageUrl }) {
+  if (!imageUrl) return false
+
+  for (const reference of catalogImageReferences) {
+    const query = {
+      [reference.field]: imageUrl,
+    }
+
+    if (reference.modelName === currentModelName && currentItemId) {
+      query._id = { $ne: currentItemId }
+    }
+
+    const exists = await reference.Model.exists(query)
+    if (exists) {
+      return true
+    }
+  }
+
+  return false
+}
+
+async function safelyDeleteCloudinaryImage({ currentModelName, currentItemId, imageUrl }) {
+  if (!imageUrl) return
+
+  const isReferenced = await isImageUrlReferencedElsewhere({
+    currentModelName,
+    currentItemId,
+    imageUrl,
+  })
+
+  if (isReferenced) return
+
+  await MediaAsset.deleteMany({ url: imageUrl })
+  await deleteCloudinaryImageByUrl(imageUrl)
 }
 
 function crudHandlers(Model) {
@@ -61,6 +122,8 @@ function crudHandlers(Model) {
     }),
     create: asyncHandler(async (req, res) => {
       const payload = { ...req.body }
+      if ('image' in payload) payload.image = normalizeAssetUrl(payload.image, 'image')
+      if ('logo' in payload) payload.logo = normalizeAssetUrl(payload.logo, 'logo')
       if ('tags' in payload) payload.tags = parseTags(payload.tags)
       if (modelName === 'project') {
         payload.developerName =
@@ -72,13 +135,31 @@ function crudHandlers(Model) {
     }),
     update: asyncHandler(async (req, res) => {
       const payload = { ...req.body }
+      if ('image' in payload) payload.image = normalizeAssetUrl(payload.image, 'image')
+      if ('logo' in payload) payload.logo = normalizeAssetUrl(payload.logo, 'logo')
       if ('tags' in payload) payload.tags = parseTags(payload.tags)
       if (modelName === 'project') {
         payload.developerName =
           payload.developerName || payload.developer || payload.developerCredit || payload.developer_name || ''
       }
+
+      const existingItem = await Model.findById(req.params.id)
+      if (!existingItem) throw new ApiError(404, 'Item not found')
+
+      const previousImageUrl = existingItem.image || existingItem.logo || ''
+
       const item = await Model.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true })
       if (!item) throw new ApiError(404, 'Item not found')
+
+      const nextImageUrl = item.image || item.logo || ''
+      if (previousImageUrl && previousImageUrl !== nextImageUrl) {
+        await safelyDeleteCloudinaryImage({
+          currentModelName: modelName,
+          currentItemId: item._id,
+          imageUrl: previousImageUrl,
+        })
+      }
+
       clearCacheByNamespace(cacheNamespace)
       res.json({ message: 'Updated', item })
     }),
@@ -88,7 +169,11 @@ function crudHandlers(Model) {
 
       const imageUrl = item.image || item.logo || ''
       if (imageUrl) {
-        await deleteCloudinaryImageByUrl(imageUrl)
+        await safelyDeleteCloudinaryImage({
+          currentModelName: modelName,
+          currentItemId: item._id,
+          imageUrl,
+        })
       }
 
       await item.deleteOne()

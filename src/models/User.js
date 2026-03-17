@@ -38,7 +38,6 @@ const userSchema = new mongoose.Schema(
       content: { type: Boolean, default: false },
       media: { type: Boolean, default: false },
       leads: { type: Boolean, default: false },
-      orders: { type: Boolean, default: false },
       openings: { type: Boolean, default: false },
       applications: { type: Boolean, default: false },
       users: { type: Boolean, default: false },

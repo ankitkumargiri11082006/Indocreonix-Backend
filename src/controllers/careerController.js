@@ -5,7 +5,7 @@ import { Opportunity } from '../models/Opportunity.js'
 import { CareerApplication } from '../models/CareerApplication.js'
 import { AdminAuditLog } from '../models/AdminAuditLog.js'
 import { clearCacheByNamespace, getCached, setCached } from '../utils/publicCache.js'
-import { sendApplicationConfirmation, sendApplicationNotification } from '../utils/emailService.js'
+import { sendApplicationConfirmation, sendApplicationNotification, sendShortlistNotification } from '../utils/emailService.js'
 
 const OPPORTUNITIES_PUBLIC_CACHE_NAMESPACE = 'careers:opportunities:public'
 
@@ -404,6 +404,7 @@ export const updateApplicationStatus = asyncHandler(async (req, res) => {
 
   if (!item) throw new ApiError(404, 'Application not found')
 
+  const previousStatus = item.status
   if (status) item.status = status
   if (typeof adminNotes === 'string') item.adminNotes = adminNotes
   if (item.isUnreadForAdmin) {
@@ -417,6 +418,16 @@ export const updateApplicationStatus = asyncHandler(async (req, res) => {
     status: item.status,
     hasAdminNotes: Boolean(item.adminNotes),
   })
+
+  // Notify the candidate when their status moves to shortlisted
+  if (item.status === 'shortlisted' && previousStatus !== 'shortlisted') {
+    sendShortlistNotification(item.email, {
+      fullName: item.fullName,
+      opportunityTitle: item.opportunity?.title || item.roleType,
+    }).catch((err) => {
+      console.error('[Email] Shortlist notification failed:', err.message)
+    })
+  }
 
   res.json({ message: 'Application updated', item })
 })

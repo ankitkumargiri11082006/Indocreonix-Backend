@@ -511,6 +511,37 @@ export async function sendApplicationNotification(data) {
   })
 }
 
+export function buildShortlistNotificationEmail({ fullName, opportunityTitle }) {
+  const subject = `You’re shortlisted for ${opportunityTitle} — next steps from ${BRAND}`
+  const preview = `Good news, ${fullName}! Your application has been shortlisted.`
+
+  const body = `
+  ${header('Congratulations!')}
+  <div class="body">
+    <p class="greeting">Hi ${fullName},</p>
+    <p class="intro">Good news — your application for <strong>${opportunityTitle}</strong> has been shortlisted by our team.</p>
+    <p class="intro">We’ll be in touch soon with the next steps, which may include a short technical assessment or an interview. Please keep an eye on your inbox.</p>
+    <div class="box box-dark" style="padding:18px 22px;margin-top:12px">
+      <div class="box-label">What you can do now</div>
+      <div class="box-value">If you have any questions meanwhile, feel free to reply to this email and we’ll respond as soon as possible.</div>
+    </div>
+    <div class="divider"></div>
+    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">Thank you for your interest in joining <strong>${BRAND}</strong>. We appreciate your time and look forward to speaking with you.</p>
+  </div>`
+
+  return { subject, html: shell(preview, body) }
+}
+
+export async function sendShortlistNotification(to, data) {
+  const { subject, html } = buildShortlistNotificationEmail(data)
+  return sendMail({
+    from:    `"${BRAND} Careers" <${getSenderAddress('careers')}>`,
+    to,
+    subject,
+    html,
+  })
+}
+
 /**
  * Contact form — confirmation to the person who wrote to us
  */

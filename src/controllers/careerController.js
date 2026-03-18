@@ -5,6 +5,7 @@ import { Opportunity } from '../models/Opportunity.js'
 import { CareerApplication } from '../models/CareerApplication.js'
 import { AdminAuditLog } from '../models/AdminAuditLog.js'
 import { clearCacheByNamespace, getCached, setCached } from '../utils/publicCache.js'
+import { sendApplicationConfirmation, sendApplicationNotification } from '../utils/emailService.js'
 
 const OPPORTUNITIES_PUBLIC_CACHE_NAMESPACE = 'careers:opportunities:public'
 
@@ -271,6 +272,35 @@ export const submitApplication = asyncHandler(async (req, res) => {
     cvOriginalName: req.file.originalname,
     cvBytes: req.file.size,
   })
+
+  // ── Fire-and-forget emails ───────────────────────────────────────────────
+  const opportunityTitle = opportunityId
+    ? (await Opportunity.findById(opportunityId).select('title').lean())?.title || roleType
+    : roleType
+
+  const emailData = {
+    fullName,
+    email,
+    phone,
+    city,
+    roleType,
+    opportunityTitle,
+    experience,
+    qualification,
+    skills,
+    portfolio,
+    message,
+  }
+
+  // Confirmation to applicant (from careers@indocreonix.com)
+  sendApplicationConfirmation(email, emailData).catch((err) =>
+    console.error('[Email] Application confirmation failed:', err.message)
+  )
+
+  // Notification to internal HR / careers inbox
+  sendApplicationNotification(emailData).catch((err) =>
+    console.error('[Email] Application notification failed:', err.message)
+  )
 
   res.status(201).json({ message: 'Application submitted successfully', itemId: item._id })
 })

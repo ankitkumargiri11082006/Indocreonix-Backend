@@ -41,4 +41,13 @@ export const env = {
   cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
   cloudinaryApiKey: process.env.CLOUDINARY_API_KEY || '',
   cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET || '',
+
+  // ── Email / SMTP ──────────────────────────────────────────────────────────
+  smtpHost:        process.env.SMTP_HOST        || 'smtp.hostinger.com',
+  smtpPort:        Number(process.env.SMTP_PORT   || 587),
+  smtpUser:        process.env.SMTP_USER         || '',   // master mailbox login
+  smtpPass:        process.env.SMTP_PASS         || '',   // master mailbox password
+  smtpInfoFrom:    process.env.SMTP_INFO_FROM    || 'info@indocreonix.com',
+  smtpContactFrom: process.env.SMTP_CONTACT_FROM || 'contact@indocreonix.com',
+  smtpCareersFrom: process.env.SMTP_CAREERS_FROM || 'careers@indocreonix.com',
 }

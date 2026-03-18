@@ -1,6 +1,7 @@
 import { asyncHandler } from '../utils/asyncHandler.js'
 import { ApiError } from '../utils/apiError.js'
 import { ContactLead } from '../models/ContactLead.js'
+import { sendContactConfirmation, sendContactNotification } from '../utils/emailService.js'
 
 export const createLead = asyncHandler(async (req, res) => {
   const { name, email, phone, company, message } = req.body
@@ -10,6 +11,19 @@ export const createLead = asyncHandler(async (req, res) => {
   }
 
   const lead = await ContactLead.create({ name, email, phone, company, message })
+
+  // ── Fire-and-forget emails ───────────────────────────────────────────────
+  const emailData = { name, email, phone, company, message }
+
+  // Confirmation to the person who filled the contact form (from contact@indocreonix.com)
+  sendContactConfirmation(email, emailData).catch((err) =>
+    console.error('[Email] Contact confirmation failed:', err.message)
+  )
+
+  // Internal notification to contact@indocreonix.com inbox
+  sendContactNotification(emailData).catch((err) =>
+    console.error('[Email] Contact notification failed:', err.message)
+  )
 
   res.status(201).json({ message: 'Lead submitted', lead })
 })

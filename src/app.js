@@ -20,6 +20,9 @@ import { errorHandler, notFound } from './middlewares/errorHandler.js'
 
 const app = express()
 
+// Trust the first proxy (Render, Vercel, Nginx, etc) for accurate client IPs in rate limiters
+app.set('trust proxy', 1)
+
 const normalizeOrigin = (origin) => origin.replace(/\/+$/, '')
 
 function isAllowedOrigin(origin) {

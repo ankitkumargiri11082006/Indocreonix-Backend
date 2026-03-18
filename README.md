@@ -28,6 +28,24 @@ npm run dev
 
 Server runs at `http://localhost:5000` by default.
 
+## SMTP (Hostinger) on Render
+
+If email works locally but times out on Render, check these environment variables on Render:
+
+- `SMTP_HOST=smtp.hostinger.com`
+- `SMTP_PORT=465`
+- `SMTP_SECURE=true`
+- `SMTP_USER=<your-primary-hostinger-mailbox>`
+- `SMTP_PASS=<mailbox-password>`
+
+Optional tuning:
+
+- `SMTP_CONNECTION_TIMEOUT=20000`
+- `SMTP_GREETING_TIMEOUT=15000`
+- `SMTP_SOCKET_TIMEOUT=30000`
+
+The backend now logs SMTP startup verification and includes SMTP error codes in logs to help diagnose network-level blocking.
+
 ## API Overview
 
 - `POST /api/auth/signup`

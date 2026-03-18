@@ -51,15 +51,48 @@ function getTransporter() {
   _transporter = nodemailer.createTransport({
     host:   env.smtpHost,
     port:   env.smtpPort,
-    secure: env.smtpPort === 465,
+    secure: env.smtpSecure,
     auth: {
       user: env.smtpUser,
       pass: env.smtpPass,
     },
-    tls: { rejectUnauthorized: false },
-    family: 4 // Forces IPv4 to fix Render's ENETUNREACH IPv6 bug
+    requireTLS: env.smtpRequireTls,
+    ignoreTLS: env.smtpIgnoreTls,
+    connectionTimeout: env.smtpConnectionTimeout,
+    greetingTimeout: env.smtpGreetingTimeout,
+    socketTimeout: env.smtpSocketTimeout,
+    tls: {
+      servername: env.smtpHost,
+      rejectUnauthorized: env.smtpRejectUnauthorized,
+    },
+    family: 4,
   })
   return _transporter
+}
+
+export async function verifySmtpConnection() {
+  if (!env.smtpUser || !env.smtpPass) {
+    console.warn('[Email] SMTP verify skipped — credentials are missing.')
+    return false
+  }
+
+  try {
+    await getTransporter().verify()
+    console.log(
+      `[Email] SMTP verified (${env.smtpHost}:${env.smtpPort}, secure=${String(env.smtpSecure)})`
+    )
+    return true
+  } catch (err) {
+    console.error(
+      `[Email] SMTP verify failed (${env.smtpHost}:${env.smtpPort}, secure=${String(env.smtpSecure)}): ${err.code || 'UNKNOWN'} ${err.message}`
+    )
+    if (err.code === 'ETIMEDOUT' || /timeout/i.test(err.message || '')) {
+      console.error(
+        '[Email] Hint: this usually means outbound SMTP is blocked by the host/network. On Render, verify outbound SMTP access or use a transactional email API provider.'
+      )
+    }
+    return false
+  }
 }
 
 async function sendMail(options) {
@@ -72,7 +105,9 @@ async function sendMail(options) {
     console.log(`[Email] ✅ Sent to ${options.to} — ${info.messageId}`)
     return info
   } catch (err) {
-    console.error('[Email] ❌ Failed:', err.message)
+    console.error(
+      `[Email] ❌ Failed (${env.smtpHost}:${env.smtpPort}, secure=${String(env.smtpSecure)}): ${err.code || 'UNKNOWN'} ${err.message}`
+    )
     return null
   }
 }

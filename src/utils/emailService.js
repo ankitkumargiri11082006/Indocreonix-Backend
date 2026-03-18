@@ -513,37 +513,55 @@ export async function sendApplicationNotification(data) {
 
 export function buildReviewingNotificationEmail({ fullName, opportunityTitle }) {
   const subject = `Your application for ${opportunityTitle} is under review`;
-  const preview = `Hi ${fullName}, your application is now being reviewed.`;
+  const preview = `Hi ${fullName}, we are reviewing your application for ${opportunityTitle}.`;
 
   const body = `
   ${header('Application Under Review')}
   <div class="body">
     <p class="greeting">Hi ${fullName},</p>
-    <p class="intro">We have received your application for <strong>${opportunityTitle}</strong> and our team is currently reviewing it.</p>
-    <p class="intro">We’ll reach out soon with any next steps.</p>
+    <p class="intro">Thank you for applying for the <strong>${opportunityTitle}</strong> role at <strong>${BRAND}</strong>. Your application is now under review by our hiring team.</p>
+
+    <div class="box box-success" style="padding:18px 22px;margin-top:16px">
+      <div class="box-label">Next steps</div>
+      <div class="box-value">
+        <ol style="margin:0;padding-left:18px;line-height:1.6">
+          <li><strong>Profile review:</strong> We assess your skills, experience, and fit for the role.</li>
+          <li><strong>Shortlisting:</strong> Selected candidates move forward for an initial screening.</li>
+          <li><strong>HR contact:</strong> Our HR team will reach out with next steps, typically within 5–7 business days.</li>
+        </ol>
+      </div>
+    </div>
+
     <div class="divider"></div>
-    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">Thank you for applying to <strong>${BRAND}</strong>. We appreciate your patience while we review your profile.</p>
+    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">If you have any questions in the meantime, feel free to reply to this email. We look forward to speaking with you.</p>
   </div>`
 
   return { subject, html: shell(preview, body) }
 }
 
 export function buildShortlistNotificationEmail({ fullName, opportunityTitle }) {
-  const subject = `You’re shortlisted for ${opportunityTitle} — next steps from ${BRAND}`
-  const preview = `Good news, ${fullName}! Your application has been shortlisted.`
+  const subject = `You’ve been shortlisted for ${opportunityTitle}`
+  const preview = `Great news, ${fullName}: you’ve been shortlisted for ${opportunityTitle}.`;
 
   const body = `
-  ${header('Congratulations!')}
+  ${header('You’re Shortlisted!')}
   <div class="body">
     <p class="greeting">Hi ${fullName},</p>
-    <p class="intro">Good news — your application for <strong>${opportunityTitle}</strong> has been shortlisted by our team.</p>
-    <p class="intro">We’ll be in touch soon with the next steps, which may include a short technical assessment or an interview. Please keep an eye on your inbox.</p>
-    <div class="box box-dark" style="padding:18px 22px;margin-top:12px">
-      <div class="box-label">What you can do now</div>
-      <div class="box-value">If you have any questions meanwhile, feel free to reply to this email and we’ll respond as soon as possible.</div>
+    <p class="intro">We’re excited to let you know that your application for <strong>${opportunityTitle}</strong> has been shortlisted.</p>
+
+    <div class="box" style="background:#e6f4ea;border:1px solid #10b981; padding:18px 22px; margin-top:16px">
+      <div class="box-label" style="color:#065f46">Next steps</div>
+      <div class="box-value" style="color:#065f46">
+        <ol style="margin:0;padding-left:18px;line-height:1.6">
+          <li><strong>HR outreach:</strong> Our HR team will contact you to schedule a brief conversation.</li>
+          <li><strong>Assessment:</strong> You may be asked to complete a short technical/aptitude assessment.</li>
+          <li><strong>Final decision:</strong> We’ll update you via email once the next step is confirmed.</li>
+        </ol>
+      </div>
     </div>
+
     <div class="divider"></div>
-    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">Thank you for your interest in joining <strong>${BRAND}</strong>. We appreciate your time and look forward to speaking with you.</p>
+    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">If you have any questions, just reply to this message and we’ll respond within 1–2 business days.</p>
   </div>`
 
   return { subject, html: shell(preview, body) }

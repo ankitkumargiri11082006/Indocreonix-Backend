@@ -595,42 +595,69 @@ export function buildShortlistNotificationEmail({ fullName, opportunityTitle }) 
 }
 
 export function buildHiredNotificationEmail({ fullName, opportunityTitle }) {
-  const subject = `Welcome to Indocreonix! You're Hired — ${opportunityTitle}`
-  const preview = `Congratulations ${fullName}! We are thrilled to offer you the position for ${opportunityTitle}.`
+  const subject = `Offer of Employment — ${opportunityTitle}`
+  const preview = `Dear ${fullName}, we are delighted to offer you the position of ${opportunityTitle} at Indocreonix.`
 
   const body = `
-  ${header('Welcome to the Team!')}
+  ${header('Offer of Employment')}
   <div class="tag-strip">
-    <span class="tag" style="background:#f0fdf4;color:#166534;border-color:#16a34a22">&#11088; Application Status</span>
-    <span class="tag" style="background:#f0fdf4;color:#166534;border-color:#16a34a22">Selected / Hired</span>
+    <span class="tag" style="background:#f0fdf4;color:#166534;border-color:#16a34a22">&#11088; Formal Offer</span>
+    <span class="tag" style="background:#f0fdf4;color:#166534;border-color:#16a34a22">Selected</span>
   </div>
   <div class="body">
-    <p class="greeting">Congratulations ${fullName}! 🎉</p>
-    <p class="intro">On behalf of everyone at <strong>${BRAND}</strong>, we are absolutely thrilled to inform you that you have been successfully <strong>selected</strong> for the position of <strong>${opportunityTitle}</strong>!</p>
-
+    <p class="greeting">Dear ${fullName},</p>
+    <p class="intro">It is our great pleasure to officially inform you that you have been <strong>selected</strong> for the position of <strong>${opportunityTitle}</strong> at <strong>${BRAND}</strong>.</p>
+    
     <div class="box" style="background:#f0fdf4;border-left:4px solid #16a34a">
-      <div class="box-label" style="color:#15803d">Final Status</div>
-      <div class="box-value" style="font-weight:700;font-size:17px;color:#166534">Hired / Offer Extended</div>
-      <div style="margin-top:8px;font-size:13px;color:${COLOR.mutedText}">Get ready to start your journey with us.</div>
+      <div class="box-label" style="color:#15803d">Application Status</div>
+      <div class="box-value" style="font-weight:700;font-size:17px;color:#166534">Offer Extended</div>
+      <div style="margin-top:8px;font-size:13px;color:${COLOR.mutedText}">You are moving to the final onboarding stage.</div>
     </div>
 
     <div class="box box-dark" style="padding:18px 22px;margin-top:0">
-      <div class="box-label" style="margin-bottom:12px">Your Onboarding Journey</div>
+      <div class="box-label" style="margin-bottom:12px">Onboarding Steps</div>
       <ul class="steps">
-        <li><span class="step-num" style="background:#16a34a">&#10003;</span><span><strong>Offer Letter</strong> — Human Resources is currently drafting your formal offer letter and will send it shortly.</span></li>
-        <li><span class="step-num" style="background:#16a34a">&#10003;</span><span><strong>Documentation</strong> — You will receive a checklist of basic documents needed for your employment file.</span></li>
-        <li><span class="step-num" style="background:#16a34a">&#10003;</span><span><strong>Welcome Day</strong> — Details regarding your start date, reporting time, and team intro will be finalised.</span></li>
+        <li><span class="step-num" style="background:#16a34a">1</span><span><strong>Offer Letter Issuance</strong> — Our Human Resources department is generating your formal employment offer.</span></li>
+        <li><span class="step-num" style="background:#16a34a">2</span><span><strong>Documentation</strong> — You will be required to submit standard documentation for your employee record.</span></li>
+        <li><span class="step-num" style="background:#16a34a">3</span><span><strong>Induction</strong> — We will establish your reporting date and familiarise you with company protocols.</span></li>
       </ul>
     </div>
 
-    <div class="box box-blue" style="font-size:14px;color:#1e3a8a">
-      ℹ️ <strong>Next Action:</strong> Human Resources will contact you directly within the next 24-48 hours with your comprehensive onboarding package.
+    <div class="divider"></div>
+    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">A representative from Human Resources will contact you shortly to coordinate the delivery of your contractual documents and discuss the next formalities.</p>
+
+    <p class="intro" style="margin-top:20px">We commend you on your successful interview process and look forward to welcoming you to the firm.<br/><br/>Sincerely,<br/><strong style="color:${COLOR.btnBg}">Human Resources<br/>Team ${BRAND}</strong></p>
+  </div>`
+
+  return { subject, html: shell(preview, body) }
+}
+
+export function buildRejectedNotificationEmail({ fullName, opportunityTitle }) {
+  const subject = `Update regarding your application for ${opportunityTitle}`
+  const preview = `Dear ${fullName}, thank you for your patience. We have an update regarding your application.`
+
+  const body = `
+  ${header('Application Update')}
+  <div class="tag-strip">
+    <span class="tag" style="background:#f3f4f6;color:#374151;border-color:#6b728022">&#128269; Application Status</span>
+    <span class="tag" style="background:#f3f4f6;color:#374151;border-color:#6b728022">Not Proceeding</span>
+  </div>
+  <div class="body">
+    <p class="greeting">Dear ${fullName},</p>
+    <p class="intro">Thank you for taking the time to apply for the <strong>${opportunityTitle}</strong> position at <strong>${BRAND}</strong>, and for your patience while our Talent Acquisition team reviewed your profile.</p>
+
+    <div class="box box-dark" style="padding:18px 22px;margin-top:16px">
+      <div class="box-label">Decision Update</div>
+      <div class="box-value" style="font-size:15px;line-height:1.65;white-space:normal;color:${COLOR.bodyText}">
+        We received a significant number of strong applications for this position. After careful consideration, we have decided to move forward with other candidates whose qualifications more closely align with our current structural needs for this particular role.
+      </div>
     </div>
 
     <div class="divider"></div>
-    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">We were incredibly impressed by your skills and passion. We cannot wait to see what we build together.</p>
+    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">Please know that this decision does not reflect upon your skills or potential. We genuinely appreciate your interest in our company and the time you invested in the application process.</p>
+    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">We will keep your resume on file and may reach out if a role matching your profile opens up in the future.</p>
 
-    <p class="intro" style="margin-top:20px">Welcome aboard! 🚀<br/><br/>Warm regards,<br/><strong style="color:${COLOR.btnBg}">Team ${BRAND}</strong></p>
+    <p class="intro" style="margin-top:20px">We wish you the absolute best in your professional endeavours.<br/><br/>Sincerely,<br/><strong style="color:${COLOR.btnBg}">Human Resources<br/>Team ${BRAND}</strong></p>
   </div>`
 
   return { subject, html: shell(preview, body) }
@@ -641,6 +668,7 @@ export async function sendStatusUpdateNotification(to, status, data) {
   if (status === 'reviewing') payload = buildReviewingNotificationEmail(data)
   else if (status === 'shortlisted') payload = buildShortlistNotificationEmail(data)
   else if (status === 'hired') payload = buildHiredNotificationEmail(data)
+  else if (status === 'rejected') payload = buildRejectedNotificationEmail(data)
   else return null
 
   return sendMail({

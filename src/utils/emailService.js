@@ -511,6 +511,23 @@ export async function sendApplicationNotification(data) {
   })
 }
 
+export function buildReviewingNotificationEmail({ fullName, opportunityTitle }) {
+  const subject = `Your application for ${opportunityTitle} is under review`;
+  const preview = `Hi ${fullName}, your application is now being reviewed.`;
+
+  const body = `
+  ${header('Application Under Review')}
+  <div class="body">
+    <p class="greeting">Hi ${fullName},</p>
+    <p class="intro">We have received your application for <strong>${opportunityTitle}</strong> and our team is currently reviewing it.</p>
+    <p class="intro">We’ll reach out soon with any next steps.</p>
+    <div class="divider"></div>
+    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">Thank you for applying to <strong>${BRAND}</strong>. We appreciate your patience while we review your profile.</p>
+  </div>`
+
+  return { subject, html: shell(preview, body) }
+}
+
 export function buildShortlistNotificationEmail({ fullName, opportunityTitle }) {
   const subject = `You’re shortlisted for ${opportunityTitle} — next steps from ${BRAND}`
   const preview = `Good news, ${fullName}! Your application has been shortlisted.`
@@ -532,13 +549,35 @@ export function buildShortlistNotificationEmail({ fullName, opportunityTitle }) 
   return { subject, html: shell(preview, body) }
 }
 
-export async function sendShortlistNotification(to, data) {
-  const { subject, html } = buildShortlistNotificationEmail(data)
+export function buildHiredNotificationEmail({ fullName, opportunityTitle }) {
+  const subject = `You’ve been hired for ${opportunityTitle}!`;
+  const preview = `Congratulations ${fullName}, you’re hired!`;
+
+  const body = `
+  ${header('Welcome to the Team!')}
+  <div class="body">
+    <p class="greeting">Hi ${fullName},</p>
+    <p class="intro">Congratulations! You have been hired for the position of <strong>${opportunityTitle}</strong>.</p>
+    <p class="intro">Our HR team will reach out to you shortly with the next steps to get you onboarded.</p>
+    <div class="divider"></div>
+    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">If you have any immediate questions, please reply to this email and we’ll get back to you.</p>
+  </div>`
+
+  return { subject, html: shell(preview, body) }
+}
+
+export async function sendStatusUpdateNotification(to, status, data) {
+  let payload
+  if (status === 'reviewing') payload = buildReviewingNotificationEmail(data)
+  else if (status === 'shortlisted') payload = buildShortlistNotificationEmail(data)
+  else if (status === 'hired') payload = buildHiredNotificationEmail(data)
+  else return null
+
   return sendMail({
     from:    `"${BRAND} Careers" <${getSenderAddress('careers')}>`,
     to,
-    subject,
-    html,
+    subject: payload.subject,
+    html: payload.html,
   })
 }
 

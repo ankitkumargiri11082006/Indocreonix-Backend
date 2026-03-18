@@ -5,7 +5,7 @@ import { Opportunity } from '../models/Opportunity.js'
 import { CareerApplication } from '../models/CareerApplication.js'
 import { AdminAuditLog } from '../models/AdminAuditLog.js'
 import { clearCacheByNamespace, getCached, setCached } from '../utils/publicCache.js'
-import { sendApplicationConfirmation, sendApplicationNotification, sendShortlistNotification } from '../utils/emailService.js'
+import { sendApplicationConfirmation, sendApplicationNotification, sendStatusUpdateNotification } from '../utils/emailService.js'
 
 const OPPORTUNITIES_PUBLIC_CACHE_NAMESPACE = 'careers:opportunities:public'
 
@@ -419,13 +419,13 @@ export const updateApplicationStatus = asyncHandler(async (req, res) => {
     hasAdminNotes: Boolean(item.adminNotes),
   })
 
-  // Notify the candidate when their status moves to shortlisted
-  if (item.status === 'shortlisted' && previousStatus !== 'shortlisted') {
-    sendShortlistNotification(item.email, {
+  // Notify the candidate when status changes (reviewing / shortlisted / hired)
+  if (item.status !== previousStatus) {
+    sendStatusUpdateNotification(item.email, item.status, {
       fullName: item.fullName,
       opportunityTitle: item.opportunity?.title || item.roleType,
     }).catch((err) => {
-      console.error('[Email] Shortlist notification failed:', err.message)
+      console.error('[Email] Status update notification failed:', err.message)
     })
   }
 

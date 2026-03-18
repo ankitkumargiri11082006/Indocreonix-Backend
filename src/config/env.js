@@ -59,7 +59,17 @@ export const env = {
   smtpConnectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT || 20000),
   smtpGreetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT || 15000),
   smtpSocketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT || 30000),
+
+  emailProvider: String(process.env.EMAIL_PROVIDER || 'smtp').trim().toLowerCase(),
+  resendApiKey: process.env.RESEND_API_KEY || '',
+  resendFrom: process.env.RESEND_FROM || 'onboarding@resend.dev',
+
   smtpInfoFrom:    process.env.SMTP_INFO_FROM    || 'info@indocreonix.com',
   smtpContactFrom: process.env.SMTP_CONTACT_FROM || 'contact@indocreonix.com',
   smtpCareersFrom: process.env.SMTP_CAREERS_FROM || 'careers@indocreonix.com',
+  resendInfoFrom: process.env.RESEND_INFO_FROM || process.env.SMTP_INFO_FROM || process.env.RESEND_FROM || 'onboarding@resend.dev',
+  resendContactFrom:
+    process.env.RESEND_CONTACT_FROM || process.env.SMTP_CONTACT_FROM || process.env.RESEND_FROM || 'onboarding@resend.dev',
+  resendCareersFrom:
+    process.env.RESEND_CAREERS_FROM || process.env.SMTP_CAREERS_FROM || process.env.RESEND_FROM || 'onboarding@resend.dev',
 }

@@ -46,6 +46,31 @@ Optional tuning:
 
 The backend now logs SMTP startup verification and includes SMTP error codes in logs to help diagnose network-level blocking.
 
+### Render Free-tier note
+
+Render Free web services block outbound SMTP ports (`25`, `465`, `587`).
+If you are on Free tier, direct Hostinger SMTP will time out.
+
+Use one of these options:
+
+- Upgrade Render instance type (SMTP allowed), or
+- Use `EMAIL_PROVIDER=resend` with HTTPS API (works on Free tier)
+
+Required env vars for Resend mode:
+
+- `EMAIL_PROVIDER=resend`
+- `RESEND_API_KEY=<your_resend_api_key>`
+- `RESEND_FROM=<fallback_sender@yourdomain.com>`
+- `RESEND_INFO_FROM=info@yourdomain.com`
+- `RESEND_CONTACT_FROM=contact@yourdomain.com`
+- `RESEND_CAREERS_FROM=careers@yourdomain.com`
+
+Mail sender mapping:
+
+- Contact form emails send from `RESEND_CONTACT_FROM`
+- Career application emails send from `RESEND_CAREERS_FROM`
+- Any default/fallback email sends from `RESEND_INFO_FROM`
+
 ## API Overview
 
 - `POST /api/auth/signup`

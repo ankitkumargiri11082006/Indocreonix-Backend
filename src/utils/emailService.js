@@ -46,6 +46,18 @@ const COLOR = {
 
 let _transporter = null
 
+function getSenderAddress(kind = 'info') {
+  if (env.emailProvider === 'resend') {
+    if (kind === 'careers') return env.resendCareersFrom
+    if (kind === 'contact') return env.resendContactFrom
+    return env.resendInfoFrom || env.resendFrom
+  }
+
+  if (kind === 'careers') return env.smtpCareersFrom
+  if (kind === 'contact') return env.smtpContactFrom
+  return env.smtpInfoFrom || env.smtpUser
+}
+
 function getTransporter() {
   if (_transporter) return _transporter
   _transporter = nodemailer.createTransport({
@@ -71,6 +83,15 @@ function getTransporter() {
 }
 
 export async function verifySmtpConnection() {
+  if (env.emailProvider === 'resend') {
+    if (!env.resendApiKey) {
+      console.warn('[Email] Resend selected but RESEND_API_KEY is missing.')
+      return false
+    }
+    console.log('[Email] Email provider: resend (HTTPS API, SMTP port restrictions do not apply).')
+    return true
+  }
+
   if (!env.smtpUser || !env.smtpPass) {
     console.warn('[Email] SMTP verify skipped — credentials are missing.')
     return false
@@ -96,12 +117,54 @@ export async function verifySmtpConnection() {
 }
 
 async function sendMail(options) {
+  if (env.emailProvider === 'resend') {
+    if (!env.resendApiKey) {
+      console.warn('[Email] RESEND_API_KEY missing — email skipped.')
+      return null
+    }
+
+    try {
+      const to = Array.isArray(options.to) ? options.to : [options.to]
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: options.from || `"${BRAND}" <${getSenderAddress('info')}>`,
+          to,
+          subject: options.subject,
+          html: options.html,
+          reply_to: options.replyTo,
+        }),
+      })
+
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        console.error(
+          `[Email] ❌ Resend failed (${response.status}): ${payload?.message || payload?.error || 'Unknown error'}`
+        )
+        return null
+      }
+
+      console.log(`[Email] ✅ Sent via Resend to ${to.join(', ')} — ${payload?.id || 'queued'}`)
+      return payload
+    } catch (err) {
+      console.error(`[Email] ❌ Resend request failed: ${err.message}`)
+      return null
+    }
+  }
+
   if (!env.smtpUser || !env.smtpPass) {
     console.warn('[Email] SMTP credentials not configured — email skipped.')
     return null
   }
   try {
-    const info = await getTransporter().sendMail(options)
+    const info = await getTransporter().sendMail({
+      ...options,
+      from: options.from || `"${BRAND}" <${getSenderAddress('info')}>`,
+    })
     console.log(`[Email] ✅ Sent to ${options.to} — ${info.messageId}`)
     return info
   } catch (err) {
@@ -497,7 +560,7 @@ export async function sendApplicationConfirmation(to, data) {
     : buildJobConfirmationEmail(data)
 
   return sendMail({
-    from:    `"${BRAND} Careers" <${env.smtpUser}>`,
+    from:    `"${BRAND} Careers" <${getSenderAddress('careers')}>`,
     replyTo: env.smtpCareersFrom,
     to,
     subject,
@@ -511,7 +574,7 @@ export async function sendApplicationConfirmation(to, data) {
 export async function sendApplicationNotification(data) {
   const { subject, html } = buildApplicationNotificationEmail(data)
   return sendMail({
-    from:    `"${BRAND} Careers Bot" <${env.smtpUser}>`,
+    from:    `"${BRAND} Careers Bot" <${getSenderAddress('careers')}>`,
     replyTo: data.email,
     to:      env.smtpCareersFrom,
     subject,
@@ -525,7 +588,7 @@ export async function sendApplicationNotification(data) {
 export async function sendContactConfirmation(to, data) {
   const { subject, html } = buildContactConfirmationEmail(data)
   return sendMail({
-    from:    `"${BRAND}" <${env.smtpUser}>`,
+    from:    `"${BRAND}" <${getSenderAddress('contact')}>`,
     replyTo: env.smtpContactFrom,
     to,
     subject,
@@ -539,7 +602,7 @@ export async function sendContactConfirmation(to, data) {
 export async function sendContactNotification(data) {
   const { subject, html } = buildContactNotificationEmail(data)
   return sendMail({
-    from:    `"${BRAND} Contact Bot" <${env.smtpUser}>`,
+    from:    `"${BRAND} Contact Bot" <${getSenderAddress('contact')}>`,
     replyTo: data.email,
     to:      env.smtpContactFrom,
     subject,

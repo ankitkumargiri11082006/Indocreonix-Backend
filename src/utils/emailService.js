@@ -6,7 +6,6 @@
  * ╚══════════════════════════════════════════════════════════════════════════╝
  */
 
-import nodemailer from 'nodemailer'
 import { env } from '../config/env.js'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -42,135 +41,65 @@ const COLOR = {
   warnBdr:     '#f59e0b',
 }
 
-// ─── Transporter ──────────────────────────────────────────────────────────────
-
-let _transporter = null
+// ─── Sender Routing ───────────────────────────────────────────────────────────
 
 function getSenderAddress(kind = 'info') {
-  if (env.emailProvider === 'resend') {
-    if (kind === 'careers') return env.resendCareersFrom
-    if (kind === 'contact') return env.resendContactFrom
-    return env.resendInfoFrom || env.resendFrom
-  }
-
-  if (kind === 'careers') return env.smtpCareersFrom
-  if (kind === 'contact') return env.smtpContactFrom
-  return env.smtpInfoFrom || env.smtpUser
-}
-
-function getTransporter() {
-  if (_transporter) return _transporter
-  _transporter = nodemailer.createTransport({
-    host:   env.smtpHost,
-    port:   env.smtpPort,
-    secure: env.smtpSecure,
-    auth: {
-      user: env.smtpUser,
-      pass: env.smtpPass,
-    },
-    requireTLS: env.smtpRequireTls,
-    ignoreTLS: env.smtpIgnoreTls,
-    connectionTimeout: env.smtpConnectionTimeout,
-    greetingTimeout: env.smtpGreetingTimeout,
-    socketTimeout: env.smtpSocketTimeout,
-    tls: {
-      servername: env.smtpHost,
-      rejectUnauthorized: env.smtpRejectUnauthorized,
-    },
-    family: 4,
-  })
-  return _transporter
+  if (kind === 'careers') return env.resendCareersFrom
+  if (kind === 'contact') return env.resendContactFrom
+  return env.resendInfoFrom || env.resendFrom
 }
 
 export async function verifySmtpConnection() {
-  if (env.emailProvider === 'resend') {
-    if (!env.resendApiKey) {
-      console.warn('[Email] Resend selected but RESEND_API_KEY is missing.')
-      return false
-    }
-    console.log('[Email] Email provider: resend (HTTPS API, SMTP port restrictions do not apply).')
-    return true
+  if (env.emailProvider !== 'resend') {
+    console.warn(
+      `[Email] EMAIL_PROVIDER=${env.emailProvider} is not supported in this build. Falling back to resend mode.`
+    )
   }
 
-  if (!env.smtpUser || !env.smtpPass) {
-    console.warn('[Email] SMTP verify skipped — credentials are missing.')
+  if (!env.resendApiKey) {
+    console.warn('[Email] Resend selected but RESEND_API_KEY is missing.')
     return false
   }
 
-  try {
-    await getTransporter().verify()
-    console.log(
-      `[Email] SMTP verified (${env.smtpHost}:${env.smtpPort}, secure=${String(env.smtpSecure)})`
-    )
-    return true
-  } catch (err) {
-    console.error(
-      `[Email] SMTP verify failed (${env.smtpHost}:${env.smtpPort}, secure=${String(env.smtpSecure)}): ${err.code || 'UNKNOWN'} ${err.message}`
-    )
-    if (err.code === 'ETIMEDOUT' || /timeout/i.test(err.message || '')) {
-      console.error(
-        '[Email] Hint: this usually means outbound SMTP is blocked by the host/network. On Render, verify outbound SMTP access or use a transactional email API provider.'
-      )
-    }
-    return false
-  }
+  console.log('[Email] Email provider: resend (HTTPS API). SMTP is disabled in this build.')
+  return true
 }
 
 async function sendMail(options) {
-  if (env.emailProvider === 'resend') {
-    if (!env.resendApiKey) {
-      console.warn('[Email] RESEND_API_KEY missing — email skipped.')
-      return null
-    }
-
-    try {
-      const to = Array.isArray(options.to) ? options.to : [options.to]
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${env.resendApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: options.from || `"${BRAND}" <${getSenderAddress('info')}>`,
-          to,
-          subject: options.subject,
-          html: options.html,
-          reply_to: options.replyTo,
-        }),
-      })
-
-      const payload = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        console.error(
-          `[Email] ❌ Resend failed (${response.status}): ${payload?.message || payload?.error || 'Unknown error'}`
-        )
-        return null
-      }
-
-      console.log(`[Email] ✅ Sent via Resend to ${to.join(', ')} — ${payload?.id || 'queued'}`)
-      return payload
-    } catch (err) {
-      console.error(`[Email] ❌ Resend request failed: ${err.message}`)
-      return null
-    }
-  }
-
-  if (!env.smtpUser || !env.smtpPass) {
-    console.warn('[Email] SMTP credentials not configured — email skipped.')
+  if (!env.resendApiKey) {
+    console.warn('[Email] RESEND_API_KEY missing — email skipped.')
     return null
   }
+
   try {
-    const info = await getTransporter().sendMail({
-      ...options,
-      from: options.from || `"${BRAND}" <${getSenderAddress('info')}>`,
+    const to = Array.isArray(options.to) ? options.to : [options.to]
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: options.from || `"${BRAND}" <${getSenderAddress('info')}>`,
+        to,
+        subject: options.subject,
+        html: options.html,
+        reply_to: options.replyTo,
+      }),
     })
-    console.log(`[Email] ✅ Sent to ${options.to} — ${info.messageId}`)
-    return info
+
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      console.error(
+        `[Email] ❌ Resend failed (${response.status}): ${payload?.message || payload?.error || 'Unknown error'}`
+      )
+      return null
+    }
+
+    console.log(`[Email] ✅ Sent via Resend to ${to.join(', ')} — ${payload?.id || 'queued'}`)
+    return payload
   } catch (err) {
-    console.error(
-      `[Email] ❌ Failed (${env.smtpHost}:${env.smtpPort}, secure=${String(env.smtpSecure)}): ${err.code || 'UNKNOWN'} ${err.message}`
-    )
+    console.error(`[Email] ❌ Resend request failed: ${err.message}`)
     return null
   }
 }
@@ -561,7 +490,7 @@ export async function sendApplicationConfirmation(to, data) {
 
   return sendMail({
     from:    `"${BRAND} Careers" <${getSenderAddress('careers')}>`,
-    replyTo: env.smtpCareersFrom,
+    replyTo: env.resendCareersFrom,
     to,
     subject,
     html,
@@ -576,7 +505,7 @@ export async function sendApplicationNotification(data) {
   return sendMail({
     from:    `"${BRAND} Careers Bot" <${getSenderAddress('careers')}>`,
     replyTo: data.email,
-    to:      env.smtpCareersFrom,
+    to:      env.resendCareersFrom,
     subject,
     html,
   })
@@ -589,7 +518,7 @@ export async function sendContactConfirmation(to, data) {
   const { subject, html } = buildContactConfirmationEmail(data)
   return sendMail({
     from:    `"${BRAND}" <${getSenderAddress('contact')}>`,
-    replyTo: env.smtpContactFrom,
+    replyTo: env.resendContactFrom,
     to,
     subject,
     html,
@@ -604,7 +533,7 @@ export async function sendContactNotification(data) {
   return sendMail({
     from:    `"${BRAND} Contact Bot" <${getSenderAddress('contact')}>`,
     replyTo: data.email,
-    to:      env.smtpContactFrom,
+    to:      env.resendContactFrom,
     subject,
     html,
   })

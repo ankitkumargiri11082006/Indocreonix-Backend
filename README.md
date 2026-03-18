@@ -28,35 +28,11 @@ npm run dev
 
 Server runs at `http://localhost:5000` by default.
 
-## SMTP (Hostinger) on Render
+## Email (Resend)
 
-If email works locally but times out on Render, check these environment variables on Render:
+This backend uses Resend only (SMTP has been removed in code).
 
-- `SMTP_HOST=smtp.hostinger.com`
-- `SMTP_PORT=465`
-- `SMTP_SECURE=true`
-- `SMTP_USER=<your-primary-hostinger-mailbox>`
-- `SMTP_PASS=<mailbox-password>`
-
-Optional tuning:
-
-- `SMTP_CONNECTION_TIMEOUT=20000`
-- `SMTP_GREETING_TIMEOUT=15000`
-- `SMTP_SOCKET_TIMEOUT=30000`
-
-The backend now logs SMTP startup verification and includes SMTP error codes in logs to help diagnose network-level blocking.
-
-### Render Free-tier note
-
-Render Free web services block outbound SMTP ports (`25`, `465`, `587`).
-If you are on Free tier, direct Hostinger SMTP will time out.
-
-Use one of these options:
-
-- Upgrade Render instance type (SMTP allowed), or
-- Use `EMAIL_PROVIDER=resend` with HTTPS API (works on Free tier)
-
-Required env vars for Resend mode:
+Required env vars:
 
 - `EMAIL_PROVIDER=resend`
 - `RESEND_API_KEY=<your_resend_api_key>`

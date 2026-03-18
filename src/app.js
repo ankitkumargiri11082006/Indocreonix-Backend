@@ -20,16 +20,20 @@ import { errorHandler, notFound } from './middlewares/errorHandler.js'
 
 const app = express()
 
+const normalizeOrigin = (origin) => origin.replace(/\/+$/, '')
+
 function isAllowedOrigin(origin) {
   if (!origin) return true
 
-  if (env.corsOrigins.includes(origin)) {
+  const normalizedOrigin = normalizeOrigin(origin)
+
+  if (env.corsOrigins.includes(normalizedOrigin)) {
     return true
   }
 
   if (env.nodeEnv !== 'production') {
     const localhostPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i
-    if (localhostPattern.test(origin)) {
+    if (localhostPattern.test(normalizedOrigin)) {
       return true
     }
   }
@@ -43,7 +47,7 @@ function isAllowedOrigin(origin) {
       .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
       .replace(/\*/g, '.*')
     const wildcardRegex = new RegExp(`^${escaped}$`, 'i')
-    return wildcardRegex.test(origin)
+    return wildcardRegex.test(normalizedOrigin)
   })
 }
 

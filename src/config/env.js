@@ -14,16 +14,22 @@ const defaultCorsOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'https://indocreonix.vercel.app',
+  'https://indocreonix.com',
+  'https://www.indocreonix.com',
   'https://*.vercel.app',
   'https://*.netlify.app',
 ]
 
+const normalizeOrigin = (origin) => origin.trim().replace(/\/+$/, '')
+
 const configuredCorsOrigins = (process.env.CORS_ORIGIN || '')
   .split(',')
-  .map((origin) => origin.trim())
+  .map((origin) => normalizeOrigin(origin))
   .filter(Boolean)
 
-const corsOrigins = Array.from(new Set([...defaultCorsOrigins, ...configuredCorsOrigins]))
+const corsOrigins = Array.from(
+  new Set([...defaultCorsOrigins, ...configuredCorsOrigins].map((origin) => normalizeOrigin(origin)))
+)
 
 export const env = {
   port: Number(process.env.PORT || 5000),

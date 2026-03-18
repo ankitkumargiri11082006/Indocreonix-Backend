@@ -57,6 +57,7 @@ function getTransporter() {
       pass: env.smtpPass,
     },
     tls: { rejectUnauthorized: false },
+    family: 4 // Forces IPv4 to fix Render's ENETUNREACH IPv6 bug
   })
   return _transporter
 }

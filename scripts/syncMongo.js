@@ -54,8 +54,8 @@ const allServices = [
   },
   {
     title: 'Social Media Handling',
-    description: 'Comprehensive digital marketing, brand building, and engagement strategies across all platforms.',
-    image: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&w=1200&q=80',
+    description: 'Comprehensive digital marketing and social media handling services for platforms like YouTube, Instagram, and X.',
+    image: 'https://images.unsplash.com/photo-1611162618071-b39a2ec055fb?auto=format&fit=crop&w=1200&q=80',
     isActive: true,
     order: 7
   }

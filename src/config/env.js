@@ -13,10 +13,8 @@ required.forEach((key) => {
 const defaultCorsOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-  'https://indocreonix.vercel.app',
   'https://indocreonix.com',
   'https://www.indocreonix.com',
-  'https://*.vercel.app',
   'https://*.netlify.app',
 ]
 

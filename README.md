@@ -1,65 +1,89 @@
-# Indocreonix Backend
+# 🏛️ Indocreonix Backend — Enterprise Management Core
 
-Node.js + Express backend for Indocreonix admin and website integrations.
+A scalable and secure Node.js & Express backend driving the Indocreonix ecosystem. This server handles mission-critical operations, from identity management to automated project ordering and cloud-based asset orchestration.
 
-## Features
+---
 
-- JWT auth with signup/login and role-based access
-- MongoDB models for users, leads, settings, and media
-- Cloudinary media upload support
-- Admin APIs for dashboard, users, leads, settings, media
-- Security middleware: Helmet, CORS, rate limit
+## 🚀 Core Functionalities
 
-## Setup
+### 1. Identity & Security
+- **Multi-Role RBAC (Role-Based Access Control):** Granular permissions for `superadmin`, `admin`, `editor`, and `viewer`.
+- **JWT Authentication:** Secure stateless session management with HTTP-only cookie support.
+- **Advanced Security:** Implementation of `helmet` for header security, `cors` for origin protection, and `express-rate-limit` to prevent brute-force attacks.
 
-1. Copy `.env.example` to `.env`
-2. Fill MongoDB, JWT, and Cloudinary keys
-3. Install dependencies:
+### 2. Project Ordering System
+- **Intelligent Intake:** Captures detailed project briefs, budget ranges, and timelines.
+- **PRD Asset Management:** Automated upload and categorization of PRD (PDF) and supporting documents to Cloudinary.
+- **Email Automation:** Transactional email triggers via Resend for client confirmations and internal team notifications.
 
+### 3. Career & Talent Portal
+- **Application Engine:** Specialized routes for Job and Internship applications.
+- **CV Processing:** Validated PDF uploads with secure cloud storage mapping.
+
+### 4. Admin Ecosystem
+- **Dashboard Analytics:** Aggregated insights into site health and lead volume.
+- **Audit Logging:** Systematic tracking of administrative actions for compliance and security.
+- **Media Controller:** Centralized management of website assets via Cloudinary integration.
+
+---
+
+## 🛠️ Technology Stack
+
+| Layer | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Runtime** | Node.js (LTS) | High-performance asynchronous execution |
+| **Framework** | Express.js | Robust middleware-driven routing |
+| **Database** | MongoDB | Document-oriented data persistence |
+| **ORM** | Mongoose | Schema-based data modeling and validation |
+| **Storage** | Cloudinary | Global CDN for media and documents |
+| **Email** | Resend | High-deliverability transactional communications |
+
+---
+
+## 📊 Data Models (Schemas)
+
+### **`User`**
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `name`, `email` | String | Identity credentials |
+| `role` | Enum | superadmin, admin, editor, viewer |
+| `permissions` | Object | Toggles for Dashboard, Projects, Orders, etc. |
+| `avatarUrl` | String | Managed profile asset |
+
+### **`ProjectOrder`**
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `projectCategory` | Enum | Website, App, Custom Software, etc. |
+| `prdUrl` | String | Secure link to the PRD (PDF) on Cloudinary |
+| `status` | Enum | new, qualified, in_discussion, won, lost |
+| `targetBudget` | String | Client's expected investment range |
+
+---
+
+## ⚙️ Operation & Setup
+
+### **1. Environment Configuration**
+Copy `.env.example` to `.env` and configure the following:
+- `MONGODB_URI`: Connection string for your cluster.
+- `JWT_SECRET`: High-entropy string for token signing.
+- `CLOUDINARY_*`: API keys for media storage.
+- `RESEND_API_KEY`: Authorization for email delivery.
+
+### **2. Commands**
 ```bash
+# Install dependencies
 npm install
-```
 
-4. Run server:
-
-```bash
+# Start development server (with nodemon)
 npm run dev
+
+# Start production server
+npm start
 ```
 
-Server runs at `http://localhost:5000` by default.
+Default access point: `http://localhost:5000/api`
 
-## Email (Resend)
+---
 
-This backend uses Resend only (SMTP has been removed in code).
-
-Required env vars:
-
-- `EMAIL_PROVIDER=resend`
-- `RESEND_API_KEY=<your_resend_api_key>`
-- `RESEND_FROM=<fallback_sender@yourdomain.com>`
-- `RESEND_INFO_FROM=info@yourdomain.com`
-- `RESEND_CONTACT_FROM=contact@yourdomain.com`
-- `RESEND_CAREERS_FROM=careers@yourdomain.com`
-
-Mail sender mapping:
-
-- Contact form emails send from `RESEND_CONTACT_FROM`
-- Career application emails send from `RESEND_CAREERS_FROM`
-- Any default/fallback email sends from `RESEND_INFO_FROM`
-
-## API Overview
-
-- `POST /api/auth/signup`
-- `POST /api/auth/login`
-- `GET /api/auth/me`
-- `GET /api/dashboard/stats`
-- `GET /api/users`
-- `PATCH /api/users/:id`
-- `POST /api/leads`
-- `GET /api/leads`
-- `PATCH /api/leads/:id`
-- `GET /api/settings`
-- `PUT /api/settings`
-- `GET /api/media`
-- `POST /api/media`
-- `DELETE /api/media/:id`
+## 📝 Developer Notes
+The project was architected using **Antigravity (Gemini 2.0 Pro)** for high-precision logic and security implementation. The codebase follows modern ES Modules syntax and uses a structured middleware approach for clean concerns separation.

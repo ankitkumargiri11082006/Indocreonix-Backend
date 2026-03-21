@@ -214,7 +214,7 @@ function footer() {
       <a href="mailto:info@indocreonix.com">Contact&nbsp;Us</a>
     </div>
     <div class="footer-copy">
-      &copy; ${YEAR} ${BRAND} Technologies Pvt. Ltd. &bull; All rights reserved<br/>
+      &copy; ${YEAR} ${BRAND} Infotech &bull; All rights reserved<br/>
       This email was sent automatically. Please do not reply to this address.
     </div>
     <div class="footer-sig">

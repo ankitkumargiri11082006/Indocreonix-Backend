@@ -16,6 +16,7 @@ import clientRoutes from './routes/clientRoutes.js'
 import projectRoutes from './routes/projectRoutes.js'
 import careerRoutes from './routes/careerRoutes.js'
 import auditRoutes from './routes/auditRoutes.js'
+import orderRoutes from './routes/orderRoutes.js'
 import { errorHandler, notFound } from './middlewares/errorHandler.js'
 
 const app = express()
@@ -119,6 +120,7 @@ app.use(['/api/clients', '/clients'], clientRoutes)
 app.use(['/api/projects', '/projects'], projectRoutes)
 app.use(['/api/careers', '/careers'], careerRoutes)
 app.use(['/api/audit-logs', '/audit-logs'], auditRoutes)
+app.use(['/api/orders', '/orders'], orderRoutes)
 
 app.use(notFound)
 app.use(errorHandler)

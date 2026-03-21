@@ -706,3 +706,133 @@ export async function sendContactNotification(data) {
     html,
   })
 }
+/**
+ * Project form — confirmation to the client
+ */
+export async function sendOrderConfirmation(to, data) {
+  const { subject, html } = buildOrderConfirmationEmail(data)
+  return sendMail({
+    from: `"${BRAND}" <${getSenderAddress('info')}>`,
+    replyTo: env.resendInfoFrom,
+    to,
+    subject,
+    html,
+  })
+}
+
+/**
+ * Project form — internal notification to team
+ */
+export async function sendOrderNotification(data) {
+  const { subject, html } = buildOrderNotificationEmail(data)
+  return sendMail({
+    from: `"${BRAND} Order Bot" <${getSenderAddress('info')}>`,
+    replyTo: data.email,
+    to: env.resendInfoFrom,
+    subject,
+    html,
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TEMPLATE 6 — PROJECT ORDER CONFIRMATION (to client)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildOrderConfirmationEmail({ fullName, projectCategory, projectSubtype }) {
+  const subject = `Project Request Received — ${projectCategory} | ${BRAND}`
+  const preview = `Hi ${fullName}, thank you for your project request for ${projectCategory}. Our team will review it and get back to you.`
+
+  const body = `
+  ${header('Project Request')}
+  <div class="tag-strip"><span class="tag">&#10003; Request Received</span><span class="tag" style="background:#ecfdf5;color:#065f46;border-color:#10b98122">Project Draft</span></div>
+  <div class="body">
+    <p class="greeting">Hello ${fullName},</p>
+    <p class="intro">Thank you for choosing <strong>${BRAND}</strong> for your project. We have received your request for a <strong>${projectCategory}${projectSubtype ? ` (${projectSubtype})` : ''}</strong>. Our engineering and project teams will review your requirements and reach out to you within <strong>1–2 business days</strong>.</p>
+
+    <div class="box box-success">
+      <div class="box-label">Request Status</div>
+      <div class="box-value" style="font-weight:700;font-size:17px;color:#065f46">Pending Review</div>
+      <div style="margin-top:8px;font-size:13px;color:${COLOR.mutedText}">Our team is currently evaluating your goals and requirements.</div>
+    </div>
+
+    <div class="box box-dark" style="padding:18px 22px;margin-top:0">
+      <div class="box-label" style="margin-bottom:12px">What to expect next?</div>
+      <ul class="steps">
+        <li><span class="step-num">1</span><span><strong>Requirement Analysis</strong> — We review your summary, goals, and any attached documentation.</span></li>
+        <li><span class="step-num">2</span><span><strong>Introductory Call</strong> — A project manager will contact you to discuss details and clarify unknowns.</span></li>
+        <li><span class="step-num">3</span><span><strong>Proposal & Quote</strong> — We provide a formal proposal including budget and timeline estimates.</span></li>
+        <li><span class="step-num">4</span><span><strong>Kick-off</strong> — Once the proposal is approved, we start the development cycle.</span></li>
+      </ul>
+    </div>
+
+    <div class="divider"></div>
+    <p style="font-size:14px;color:${COLOR.mutedText};margin-bottom:16px">Curious about our process and past work?</p>
+    <div class="btn-wrap">
+      <a href="${BRAND_SITE}/services" class="cta-btn">View Our Services &rarr;</a>
+    </div>
+
+    <div class="divider" style="margin-top:28px"></div>
+    <p class="intro" style="font-size:13px;color:${COLOR.mutedText}">For any immediate queries, you can reach our project team at <a href="mailto:info@indocreonix.com" style="color:${COLOR.accentDark}">info@indocreonix.com</a>.</p>
+
+    <p class="intro" style="margin-top:20px">Looking forward to building something great Together!<br/><br/>
+    Warm regards,<br/><strong style="color:${COLOR.btnBg}">Team ${BRAND}</strong></p>
+  </div>`
+
+  return { subject, html: shell(preview, body) }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TEMPLATE 7 — INTERNAL: Project Order Notification (to team)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildOrderNotificationEmail({ fullName, email, phone, company, targetBudget, targetTimeline, projectCategory, projectSubtype, requestedService, businessGoals, projectSummary }) {
+  const subject = `[New Project Request] ${fullName} — ${projectCategory}`
+  const preview = `New project request from ${fullName} for ${projectCategory}. Review and respond.`
+
+  const body = `
+  ${header('New Project Request')}
+  <div class="tag-strip">
+    <span class="tag">&#128188; Project Enquiry</span>
+    <span class="tag" style="background:#fff7ed;color:#c2410c;border-color:#ea580c22">High Priority</span>
+  </div>
+  <div class="body">
+    <p class="greeting" style="font-size:19px">New Project Detail Received</p>
+    <p class="intro">A new project request has been submitted via the ${BRAND} website. Please review the requirements and assign a project manager.</p>
+
+    <table class="info-table">
+      <tr><td>Client Name</td><td><strong>${fullName}</strong></td></tr>
+      <tr><td>Email</td><td><a href="mailto:${email}" style="color:${COLOR.accentDark}">${email}</a></td></tr>
+      <tr><td>Phone</td><td>${phone || '—'}</td></tr>
+      <tr><td>Company</td><td>${company || '—'}</td></tr>
+      <tr><td>Category</td><td><strong>${projectCategory}</strong></td></tr>
+      <tr><td>Subtype</td><td>${projectSubtype || '—'}</td></tr>
+      <tr><td>Type</td><td>${requestedService || '—'}</td></tr>
+      <tr><td>Budget</td><td>${targetBudget || 'Not specified'}</td></tr>
+      <tr><td>Timeline</td><td>${targetTimeline || 'Not specified'}</td></tr>
+    </table>
+
+    <div class="box box-dark" style="padding:18px 22px;margin-top:4px">
+      <div class="box-label">Business Goals</div>
+      <div class="box-value">${businessGoals || '—'}</div>
+    </div>
+
+    <div class="box box-dark" style="padding:18px 22px;margin-top:4px">
+      <div class="box-label">Project Summary</div>
+      <div class="box-value">${projectSummary || '—'}</div>
+    </div>
+
+    <div class="box box-warn" style="font-size:14px;color:#78350f">
+      ⚡ <strong>Documents may be attached.</strong> Log in to the admin panel to download PRD and supporting documents.
+    </div>
+
+    <div class="btn-wrap" style="display:flex;gap:12px;flex-wrap:wrap">
+      <a href="mailto:${email}" class="cta-btn" style="background:#065f46">Reply to Client &rarr;</a>
+      <a href="${BRAND_SITE}/admin/orders" class="cta-btn">View in Admin Panel &rarr;</a>
+    </div>
+
+    <div class="divider"></div>
+    <p style="font-size:12px;color:${COLOR.mutedText}">This is an automated notification from the ${BRAND} project management system.</p>
+  </div>`
+
+  return { subject, html: shell(preview, body) }
+}

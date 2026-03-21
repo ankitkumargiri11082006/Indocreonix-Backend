@@ -2,6 +2,7 @@ import { asyncHandler } from '../utils/asyncHandler.js'
 import { ApiError } from '../utils/apiError.js'
 import { cloudinary } from '../config/cloudinary.js'
 import { ProjectOrder } from '../models/ProjectOrder.js'
+import { sendOrderConfirmation, sendOrderNotification } from '../utils/emailService.js'
 
 function sanitizeFileBaseName(originalname = '') {
   const withoutExt = originalname.replace(/\.[^/.]+$/, '')
@@ -139,6 +140,10 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
     ...prdMeta,
     supportingDocuments,
   })
+
+  // Send Emails (Non-blocking)
+  sendOrderConfirmation(email, item).catch(err => console.error('[Order Email] Confirmation failed:', err))
+  sendOrderNotification(item).catch(err => console.error('[Order Email] Notification failed:', err))
 
   res.status(201).json({
     message: 'Your project request has been submitted successfully',

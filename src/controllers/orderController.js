@@ -74,15 +74,8 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Please select a valid project subtype')
   }
 
-  const filesByField = (req.files || []).reduce((accumulator, file) => {
-    const key = file.fieldname
-    if (!accumulator[key]) accumulator[key] = []
-    accumulator[key].push(file)
-    return accumulator
-  }, {})
-
-  const prdFile = filesByField.prd?.[0]
-  const supportingFiles = filesByField.supportingDocs || []
+  const prdFile = req.files?.prd?.[0]
+  const supportingFiles = req.files?.supportingDocs || []
 
   let prdMeta = {
     prdUrl: '',

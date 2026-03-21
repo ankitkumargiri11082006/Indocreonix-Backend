@@ -185,6 +185,39 @@ export const updateProjectOrder = asyncHandler(async (req, res) => {
   }
 
   await item.save()
-
-  res.json({ message: 'Order request updated', item })
-})
+ 
+   res.json({ message: 'Order request updated', item })
+ })
+ 
+ export const deleteProjectOrder = asyncHandler(async (req, res) => {
+   const item = await ProjectOrder.findById(req.params.id)
+ 
+   if (!item) {
+     throw new ApiError(404, 'Order request not found')
+   }
+ 
+   // Delete files from Cloudinary
+   if (item.prdPublicId) {
+     try {
+       await cloudinary.uploader.destroy(item.prdPublicId, { resource_type: 'raw' })
+     } catch (err) {
+       console.error('[Cloudinary] PRD deletion failed:', err)
+     }
+   }
+ 
+   if (item.supportingDocuments?.length) {
+     for (const doc of item.supportingDocuments) {
+       if (doc.publicId) {
+         try {
+           await cloudinary.uploader.destroy(doc.publicId, { resource_type: 'raw' })
+         } catch (err) {
+           console.error(`[Cloudinary] Supporting doc ${doc.name} deletion failed:`, err)
+         }
+       }
+     }
+   }
+ 
+   await item.deleteOne()
+ 
+   res.json({ message: 'Order request deleted' })
+ })

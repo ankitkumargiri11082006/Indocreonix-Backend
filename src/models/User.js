@@ -1,6 +1,9 @@
-import mongoose from 'mongoose'
-import bcrypt from 'bcryptjs'
-import { DEFAULT_ADMIN_PERMISSIONS, FULL_ADMIN_PERMISSIONS } from '../constants/adminPermissions.js'
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+import {
+  DEFAULT_ADMIN_PERMISSIONS,
+  FULL_ADMIN_PERMISSIONS,
+} from "../constants/adminPermissions.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -25,8 +28,8 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['superadmin', 'admin', 'editor', 'viewer'],
-      default: 'viewer',
+      enum: ["superadmin", "admin", "editor", "viewer"],
+      default: "viewer",
     },
     permissions: {
       dashboard: { type: Boolean, default: false },
@@ -49,11 +52,11 @@ const userSchema = new mongoose.Schema(
     },
     avatarUrl: {
       type: String,
-      default: '',
+      default: "",
     },
     avatarPublicId: {
       type: String,
-      default: '',
+      default: "",
     },
     isActive: {
       type: Boolean,
@@ -61,33 +64,37 @@ const userSchema = new mongoose.Schema(
     },
     lastLoginAt: Date,
   },
-  { timestamps: true }
-)
+  { timestamps: true },
+);
 
-userSchema.pre('save', async function preSave(next) {
+userSchema.pre("save", async function preSave(next) {
   if (this.isNew) {
-    const superadminCount = await this.constructor.countDocuments({ role: 'superadmin' })
+    const superadminCount = await this.constructor.countDocuments({
+      role: "superadmin",
+    });
     if (superadminCount === 0) {
-      this.role = 'superadmin'
+      this.role = "superadmin";
     }
   }
 
   if (!this.permissions) {
-    this.permissions = { ...DEFAULT_ADMIN_PERMISSIONS }
+    this.permissions = { ...DEFAULT_ADMIN_PERMISSIONS };
   }
 
-  if (this.role === 'superadmin') {
-    this.permissions = { ...FULL_ADMIN_PERMISSIONS }
+  if (this.role === "superadmin") {
+    this.permissions = { ...FULL_ADMIN_PERMISSIONS };
   }
 
-  if (!this.isModified('password')) return next()
-  const salt = await bcrypt.genSalt(12)
-  this.password = await bcrypt.hash(this.password, salt)
-  next()
-})
+  if (!this.isModified("password")) return next();
+  const salt = await bcrypt.genSalt(12);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
+});
 
-userSchema.methods.comparePassword = function comparePassword(candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password)
-}
+userSchema.methods.comparePassword = function comparePassword(
+  candidatePassword,
+) {
+  return bcrypt.compare(candidatePassword, this.password);
+};
 
-export const User = mongoose.model('User', userSchema)
+export const User = mongoose.model("User", userSchema);

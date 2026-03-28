@@ -1,5 +1,5 @@
-import mongoose from 'mongoose'
-import bcrypt from 'bcryptjs'
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 const portalAccountSchema = new mongoose.Schema(
   {
@@ -19,45 +19,45 @@ const portalAccountSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      default: '',
+      default: "",
       select: false,
     },
     googleId: {
       type: String,
-      default: '',
+      default: "",
       index: true,
     },
     avatarUrl: {
       type: String,
-      default: '',
+      default: "",
     },
     phone: {
       type: String,
-      default: '',
+      default: "",
       trim: true,
       maxlength: 30,
     },
     organization: {
       type: String,
-      default: '',
+      default: "",
       trim: true,
       maxlength: 140,
     },
     roleTitle: {
       type: String,
-      default: '',
+      default: "",
       trim: true,
       maxlength: 120,
     },
     location: {
       type: String,
-      default: '',
+      default: "",
       trim: true,
       maxlength: 120,
     },
     bio: {
       type: String,
-      default: '',
+      default: "",
       trim: true,
       maxlength: 1200,
     },
@@ -75,7 +75,7 @@ const portalAccountSchema = new mongoose.Schema(
     },
     otpCodeHash: {
       type: String,
-      default: '',
+      default: "",
       select: false,
     },
     otpExpiresAt: {
@@ -88,26 +88,31 @@ const portalAccountSchema = new mongoose.Schema(
       default: null,
     },
   },
-  { timestamps: true }
-)
+  { timestamps: true },
+);
 
-portalAccountSchema.pre('save', async function preSave(next) {
-  if (!this.isModified('password')) return next()
+portalAccountSchema.pre("save", async function preSave(next) {
+  if (!this.isModified("password")) return next();
 
   if (!this.password) {
-    return next()
+    return next();
   }
 
-  const salt = await bcrypt.genSalt(12)
-  this.password = await bcrypt.hash(this.password, salt)
-  return next()
-})
+  const salt = await bcrypt.genSalt(12);
+  this.password = await bcrypt.hash(this.password, salt);
+  return next();
+});
 
-portalAccountSchema.methods.comparePassword = async function comparePassword(candidatePassword) {
+portalAccountSchema.methods.comparePassword = async function comparePassword(
+  candidatePassword,
+) {
   if (!this.password || !candidatePassword) {
-    return false
+    return false;
   }
-  return bcrypt.compare(candidatePassword, this.password)
-}
+  return bcrypt.compare(candidatePassword, this.password);
+};
 
-export const PortalAccount = mongoose.model('PortalAccount', portalAccountSchema)
+export const PortalAccount = mongoose.model(
+  "PortalAccount",
+  portalAccountSchema,
+);

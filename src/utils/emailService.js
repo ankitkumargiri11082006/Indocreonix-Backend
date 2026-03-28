@@ -6,101 +6,105 @@
  * ╚══════════════════════════════════════════════════════════════════════════╝
  */
 
-import { env } from '../config/env.js'
+import { env } from "../config/env.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const BRAND       = 'Indocreonix'
-const BRAND_SITE  = 'https://indocreonix.com'
-const LOGO_URL    = 'https://indocreonix.com/logo.png'
-const YEAR        = new Date().getFullYear()
+const BRAND = "Indocreonix";
+const BRAND_SITE = "https://indocreonix.com";
+const LOGO_URL = "https://indocreonix.com/logo.png";
+const YEAR = new Date().getFullYear();
 
 // Palette — deep navy + electric cyan accent
 const COLOR = {
-  bg:          '#f0f4f9',
-  card:        '#ffffff',
-  headerGrad:  'linear-gradient(135deg, #050d1a 0%, #0a1f3d 45%, #0d3063 100%)',
-  accent:      '#00b4d8',
-  accentDark:  '#0077a8',
-  gold:        '#f0a500',
-  bodyText:    '#1e293b',
-  mutedText:   '#64748b',
-  border:      '#e2e8f0',
-  rowEven:     '#f8fafc',
-  btnBg:       '#0a1f3d',
-  btnHover:    '#0d3063',
-  tagBg:       '#e0f7ff',
-  tagText:     '#0077a8',
-  footerBg:    '#050d1a',
-  footerText:  '#94a3b8',
-  footerLink:  '#38bdf8',
-  divider:     '#1e3a5f',
-  successBg:   '#ecfdf5',
-  successBdr:  '#10b981',
-  warnBg:      '#fffbeb',
-  warnBdr:     '#f59e0b',
-}
+  bg: "#f0f4f9",
+  card: "#ffffff",
+  headerGrad: "linear-gradient(135deg, #050d1a 0%, #0a1f3d 45%, #0d3063 100%)",
+  accent: "#00b4d8",
+  accentDark: "#0077a8",
+  gold: "#f0a500",
+  bodyText: "#1e293b",
+  mutedText: "#64748b",
+  border: "#e2e8f0",
+  rowEven: "#f8fafc",
+  btnBg: "#0a1f3d",
+  btnHover: "#0d3063",
+  tagBg: "#e0f7ff",
+  tagText: "#0077a8",
+  footerBg: "#050d1a",
+  footerText: "#94a3b8",
+  footerLink: "#38bdf8",
+  divider: "#1e3a5f",
+  successBg: "#ecfdf5",
+  successBdr: "#10b981",
+  warnBg: "#fffbeb",
+  warnBdr: "#f59e0b",
+};
 
 // ─── Sender Routing ───────────────────────────────────────────────────────────
 
-function getSenderAddress(kind = 'info') {
-  if (kind === 'careers') return env.resendCareersFrom
-  if (kind === 'contact') return env.resendContactFrom
-  return env.resendInfoFrom || env.resendFrom
+function getSenderAddress(kind = "info") {
+  if (kind === "careers") return env.resendCareersFrom;
+  if (kind === "contact") return env.resendContactFrom;
+  return env.resendInfoFrom || env.resendFrom;
 }
 
 export async function verifySmtpConnection() {
-  if (env.emailProvider !== 'resend') {
+  if (env.emailProvider !== "resend") {
     console.warn(
-      `[Email] EMAIL_PROVIDER=${env.emailProvider} is not supported in this build. Falling back to resend mode.`
-    )
+      `[Email] EMAIL_PROVIDER=${env.emailProvider} is not supported in this build. Falling back to resend mode.`,
+    );
   }
 
   if (!env.resendApiKey) {
-    console.warn('[Email] Resend selected but RESEND_API_KEY is missing.')
-    return false
+    console.warn("[Email] Resend selected but RESEND_API_KEY is missing.");
+    return false;
   }
 
-  console.log('[Email] Email provider: resend (HTTPS API). SMTP is disabled in this build.')
-  return true
+  console.log(
+    "[Email] Email provider: resend (HTTPS API). SMTP is disabled in this build.",
+  );
+  return true;
 }
 
 async function sendMail(options) {
   if (!env.resendApiKey) {
-    console.warn('[Email] RESEND_API_KEY missing — email skipped.')
-    return null
+    console.warn("[Email] RESEND_API_KEY missing — email skipped.");
+    return null;
   }
 
   try {
-    const to = Array.isArray(options.to) ? options.to : [options.to]
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
+    const to = Array.isArray(options.to) ? options.to : [options.to];
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
       headers: {
         Authorization: `Bearer ${env.resendApiKey}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: options.from || `"${BRAND}" <${getSenderAddress('info')}>`,
+        from: options.from || `"${BRAND}" <${getSenderAddress("info")}>`,
         to,
         subject: options.subject,
         html: options.html,
         reply_to: options.replyTo,
       }),
-    })
+    });
 
-    const payload = await response.json().catch(() => ({}))
+    const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       console.error(
-        `[Email] ❌ Resend failed (${response.status}): ${payload?.message || payload?.error || 'Unknown error'}`
-      )
-      return null
+        `[Email] ❌ Resend failed (${response.status}): ${payload?.message || payload?.error || "Unknown error"}`,
+      );
+      return null;
     }
 
-    console.log(`[Email] ✅ Sent via Resend to ${to.join(', ')} — ${payload?.id || 'queued'}`)
-    return payload
+    console.log(
+      `[Email] ✅ Sent via Resend to ${to.join(", ")} — ${payload?.id || "queued"}`,
+    );
+    return payload;
   } catch (err) {
-    console.error(`[Email] ❌ Resend request failed: ${err.message}`)
-    return null
+    console.error(`[Email] ❌ Resend request failed: ${err.message}`);
+    return null;
   }
 }
 
@@ -196,7 +200,7 @@ function shell(previewText, bodyHtml) {
     ${footer()}
   </div>
 </body>
-</html>`
+</html>`;
 }
 
 // ─── Footer (shared) ──────────────────────────────────────────────────────────
@@ -221,7 +225,7 @@ function footer() {
       <p>Team ${BRAND}</p>
       <span>Digital Innovation &nbsp;&bull;&nbsp; Engineering Excellence &nbsp;&bull;&nbsp; Intelligent Solutions</span>
     </div>
-  </div>`
+  </div>`;
 }
 
 // ─── Header component ─────────────────────────────────────────────────────────
@@ -236,19 +240,24 @@ function header(eyebrow) {
       <div class="header-title">${eyebrow}</div>
     </div>
     <div class="header-divider"></div>
-  </div>`
+  </div>`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TEMPLATE 1 — JOB APPLICATION CONFIRMATION  (to candidate)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function buildJobConfirmationEmail({ fullName, opportunityTitle, experience, skills }) {
-  const subject = `Application Received — ${opportunityTitle} | ${BRAND}`
-  const preview = `Hi ${fullName}, we've received your job application for ${opportunityTitle}. Our team will review it shortly.`
+export function buildJobConfirmationEmail({
+  fullName,
+  opportunityTitle,
+  experience,
+  skills,
+}) {
+  const subject = `Application Received — ${opportunityTitle} | ${BRAND}`;
+  const preview = `Hi ${fullName}, we've received your job application for ${opportunityTitle}. Our team will review it shortly.`;
 
   const body = `
-  ${header('Career Opportunity')}
+  ${header("Career Opportunity")}
   <div class="tag-strip"><span class="tag">&#10003; Application Submitted</span><span class="tag" style="background:#fef9ec;color:#92400e;border-color:#f0a50022">Full-Time Position</span></div>
   <div class="body">
     <p class="greeting">Dear ${fullName},</p>
@@ -273,7 +282,7 @@ export function buildJobConfirmationEmail({ fullName, opportunityTitle, experien
     <div class="pill-row">
       <span class="pill">⏱ Response in 5–7 days</span>
       <span class="pill">📍 Position: ${opportunityTitle}</span>
-      ${experience ? `<span class="pill">🏅 Experience: ${experience}</span>` : ''}
+      ${experience ? `<span class="pill">🏅 Experience: ${experience}</span>` : ""}
     </div>
 
     <div class="divider"></div>
@@ -281,21 +290,26 @@ export function buildJobConfirmationEmail({ fullName, opportunityTitle, experien
 
     <p class="intro" style="margin-top:20px">We appreciate your time and wish you the very best.<br/><br/>
     Warm regards,<br/><strong style="color:${COLOR.btnBg}">Team ${BRAND}</strong></p>
-  </div>`
+  </div>`;
 
-  return { subject, html: shell(preview, body) }
+  return { subject, html: shell(preview, body) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TEMPLATE 2 — INTERNSHIP APPLICATION CONFIRMATION  (to candidate)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function buildInternshipConfirmationEmail({ fullName, opportunityTitle, qualification, skills }) {
-  const subject = `Internship Application Received — ${opportunityTitle} | ${BRAND}`
-  const preview = `Hi ${fullName}, your internship application at ${BRAND} has been received. Watch out for our response!`
+export function buildInternshipConfirmationEmail({
+  fullName,
+  opportunityTitle,
+  qualification,
+  skills,
+}) {
+  const subject = `Internship Application Received — ${opportunityTitle} | ${BRAND}`;
+  const preview = `Hi ${fullName}, your internship application at ${BRAND} has been received. Watch out for our response!`;
 
   const body = `
-  ${header('Internship Programme')}
+  ${header("Internship Programme")}
   <div class="tag-strip"><span class="tag">&#10003; Application Submitted</span><span class="tag" style="background:#fef3ff;color:#7e22ce;border-color:#a855f722">Internship</span></div>
   <div class="body">
     <p class="greeting">Hey ${fullName}! 👋</p>
@@ -323,7 +337,7 @@ export function buildInternshipConfirmationEmail({ fullName, opportunityTitle, q
 
     <div class="pill-row">
       <span class="pill">⏱ Response in 5–7 days</span>
-      ${qualification ? `<span class="pill">🎓 ${qualification}</span>` : ''}
+      ${qualification ? `<span class="pill">🎓 ${qualification}</span>` : ""}
     </div>
 
     <div class="divider"></div>
@@ -331,9 +345,9 @@ export function buildInternshipConfirmationEmail({ fullName, opportunityTitle, q
 
     <p class="intro" style="margin-top:20px">Best of luck — we look forward to meeting you. 🚀<br/><br/>
     Warm regards,<br/><strong style="color:${COLOR.btnBg}">Team ${BRAND}</strong></p>
-  </div>`
+  </div>`;
 
-  return { subject, html: shell(preview, body) }
+  return { subject, html: shell(preview, body) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -341,12 +355,12 @@ export function buildInternshipConfirmationEmail({ fullName, opportunityTitle, q
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function buildContactConfirmationEmail({ name, message }) {
-  const subject = `We Received Your Message | ${BRAND}`
-  const preview = `Hi ${name}, thank you for getting in touch. Our team will respond within 1–2 business days.`
-  const shortMsg = message.length > 220 ? message.slice(0, 217) + '…' : message
+  const subject = `We Received Your Message | ${BRAND}`;
+  const preview = `Hi ${name}, thank you for getting in touch. Our team will respond within 1–2 business days.`;
+  const shortMsg = message.length > 220 ? message.slice(0, 217) + "…" : message;
 
   const body = `
-  ${header('Get In Touch')}
+  ${header("Get In Touch")}
   <div class="tag-strip"><span class="tag">&#10003; Message Received</span></div>
   <div class="body">
     <p class="greeting">Hello ${name},</p>
@@ -373,26 +387,38 @@ export function buildContactConfirmationEmail({ name, message }) {
 
     <p class="intro" style="margin-top:20px">Looking forward to speaking with you!<br/><br/>
     Warm regards,<br/><strong style="color:${COLOR.btnBg}">Team ${BRAND}</strong></p>
-  </div>`
+  </div>`;
 
-  return { subject, html: shell(preview, body) }
+  return { subject, html: shell(preview, body) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TEMPLATE 4 — INTERNAL: Career Application Notification  (to HR inbox)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function buildApplicationNotificationEmail({ fullName, email, phone, city, roleType, opportunityTitle, experience, qualification, skills, portfolio, message }) {
-  const isInternship = roleType === 'internship'
-  const roleLabel    = isInternship ? 'Internship' : 'Full-Time Job'
-  const accentColor  = isInternship ? '#7c3aed' : COLOR.accentDark
-  const subject      = `[${roleLabel} Application] ${fullName} → ${opportunityTitle}`
-  const preview      = `New ${roleLabel.toLowerCase()} application from ${fullName} for ${opportunityTitle}. Review details inside.`
+export function buildApplicationNotificationEmail({
+  fullName,
+  email,
+  phone,
+  city,
+  roleType,
+  opportunityTitle,
+  experience,
+  qualification,
+  skills,
+  portfolio,
+  message,
+}) {
+  const isInternship = roleType === "internship";
+  const roleLabel = isInternship ? "Internship" : "Full-Time Job";
+  const accentColor = isInternship ? "#7c3aed" : COLOR.accentDark;
+  const subject = `[${roleLabel} Application] ${fullName} → ${opportunityTitle}`;
+  const preview = `New ${roleLabel.toLowerCase()} application from ${fullName} for ${opportunityTitle}. Review details inside.`;
 
   const body = `
   ${header(`New ${roleLabel} Application`)}
   <div class="tag-strip">
-    <span class="tag" style="background:${isInternship ? '#faf5ff' : COLOR.tagBg};color:${accentColor};border-color:${accentColor}22">&#128276; ${roleLabel}</span>
+    <span class="tag" style="background:${isInternship ? "#faf5ff" : COLOR.tagBg};color:${accentColor};border-color:${accentColor}22">&#128276; ${roleLabel}</span>
     <span class="tag" style="background:#fff7ed;color:#c2410c;border-color:#ea580c22">Action Required</span>
   </div>
   <div class="body">
@@ -402,19 +428,19 @@ export function buildApplicationNotificationEmail({ fullName, email, phone, city
     <table class="info-table">
       <tr><td>Full Name</td><td><strong>${fullName}</strong></td></tr>
       <tr><td>Email Address</td><td><a href="mailto:${email}" style="color:${COLOR.accentDark}">${email}</a></td></tr>
-      <tr><td>Phone</td><td>${phone || '—'}</td></tr>
-      <tr><td>City / Location</td><td>${city || '—'}</td></tr>
+      <tr><td>Phone</td><td>${phone || "—"}</td></tr>
+      <tr><td>City / Location</td><td>${city || "—"}</td></tr>
       <tr><td>Role Applied For</td><td><strong>${opportunityTitle || roleType}</strong></td></tr>
       <tr><td>Application Type</td><td><span style="color:${accentColor};font-weight:700">${roleLabel}</span></td></tr>
-      <tr><td>Experience</td><td>${experience || '—'}</td></tr>
-      <tr><td>Qualification</td><td>${qualification || '—'}</td></tr>
-      <tr><td>Skills</td><td>${skills || '—'}</td></tr>
-      <tr><td>Portfolio / GitHub</td><td>${portfolio ? `<a href="${portfolio}" style="color:${COLOR.accentDark}">${portfolio}</a>` : '—'}</td></tr>
+      <tr><td>Experience</td><td>${experience || "—"}</td></tr>
+      <tr><td>Qualification</td><td>${qualification || "—"}</td></tr>
+      <tr><td>Skills</td><td>${skills || "—"}</td></tr>
+      <tr><td>Portfolio / GitHub</td><td>${portfolio ? `<a href="${portfolio}" style="color:${COLOR.accentDark}">${portfolio}</a>` : "—"}</td></tr>
     </table>
 
     <div class="box box-dark" style="padding:18px 22px;margin-top:4px">
       <div class="box-label">Cover Message</div>
-      <div class="box-value">${message || '—'}</div>
+      <div class="box-value">${message || "—"}</div>
     </div>
 
     <div class="box box-warn" style="font-size:14px;color:#78350f">
@@ -427,21 +453,27 @@ export function buildApplicationNotificationEmail({ fullName, email, phone, city
 
     <div class="divider"></div>
     <p style="font-size:12px;color:${COLOR.mutedText}">This is an automated notification generated by the ${BRAND} careers system. Do not reply to this email.</p>
-  </div>`
+  </div>`;
 
-  return { subject, html: shell(preview, body) }
+  return { subject, html: shell(preview, body) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TEMPLATE 5 — INTERNAL: Contact Lead Notification  (to contact inbox)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function buildContactNotificationEmail({ name, email, phone, company, message }) {
-  const subject = `[New Enquiry] ${name}${company ? ` — ${company}` : ''}`
-  const preview = `New contact form submission from ${name}${company ? ` (${company})` : ''}. Review and respond promptly.`
+export function buildContactNotificationEmail({
+  name,
+  email,
+  phone,
+  company,
+  message,
+}) {
+  const subject = `[New Enquiry] ${name}${company ? ` — ${company}` : ""}`;
+  const preview = `New contact form submission from ${name}${company ? ` (${company})` : ""}. Review and respond promptly.`;
 
   const body = `
-  ${header('New Contact Enquiry')}
+  ${header("New Contact Enquiry")}
   <div class="tag-strip">
     <span class="tag">&#128140; Contact Form</span>
     <span class="tag" style="background:#fff7ed;color:#c2410c;border-color:#ea580c22">Respond within 24h</span>
@@ -453,13 +485,13 @@ export function buildContactNotificationEmail({ name, email, phone, company, mes
     <table class="info-table">
       <tr><td>Name</td><td><strong>${name}</strong></td></tr>
       <tr><td>Email</td><td><a href="mailto:${email}" style="color:${COLOR.accentDark}">${email}</a></td></tr>
-      <tr><td>Phone</td><td>${phone || '—'}</td></tr>
-      <tr><td>Company / Organisation</td><td>${company || '—'}</td></tr>
+      <tr><td>Phone</td><td>${phone || "—"}</td></tr>
+      <tr><td>Company / Organisation</td><td>${company || "—"}</td></tr>
     </table>
 
     <div class="box box-dark" style="padding:18px 22px;margin-top:4px">
       <div class="box-label">Their Message</div>
-      <div class="box-value">${message || '—'}</div>
+      <div class="box-value">${message || "—"}</div>
     </div>
 
     <div class="btn-wrap" style="display:flex;gap:12px;flex-wrap:wrap">
@@ -469,9 +501,9 @@ export function buildContactNotificationEmail({ name, email, phone, company, mes
 
     <div class="divider"></div>
     <p style="font-size:12px;color:${COLOR.mutedText}">This is an automated notification from the ${BRAND} contact system. Do not reply to this automated email.</p>
-  </div>`
+  </div>`;
 
-  return { subject, html: shell(preview, body) }
+  return { subject, html: shell(preview, body) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -483,40 +515,43 @@ export function buildContactNotificationEmail({ name, email, phone, company, mes
  * Sends the correct template (job vs internship) based on roleType
  */
 export async function sendApplicationConfirmation(to, data) {
-  const isInternship = data.roleType === 'internship'
+  const isInternship = data.roleType === "internship";
   const { subject, html } = isInternship
     ? buildInternshipConfirmationEmail(data)
-    : buildJobConfirmationEmail(data)
+    : buildJobConfirmationEmail(data);
 
   return sendMail({
-    from:    `"${BRAND} Careers" <${getSenderAddress('careers')}>`,
+    from: `"${BRAND} Careers" <${getSenderAddress("careers")}>`,
     replyTo: env.resendCareersFrom,
     to,
     subject,
     html,
-  })
+  });
 }
 
 /**
  * Internal HR notification — sent to careers@indocreonix.com
  */
 export async function sendApplicationNotification(data) {
-  const { subject, html } = buildApplicationNotificationEmail(data)
+  const { subject, html } = buildApplicationNotificationEmail(data);
   return sendMail({
-    from:    `"${BRAND} Careers Bot" <${getSenderAddress('careers')}>`,
+    from: `"${BRAND} Careers Bot" <${getSenderAddress("careers")}>`,
     replyTo: data.email,
-    to:      env.resendCareersFrom,
+    to: env.resendCareersFrom,
     subject,
     html,
-  })
+  });
 }
 
-export function buildReviewingNotificationEmail({ fullName, opportunityTitle }) {
-  const subject = `Application Update: Under Review — ${opportunityTitle}`
-  const preview = `Hi ${fullName}, your application for ${opportunityTitle} is now under review.`
+export function buildReviewingNotificationEmail({
+  fullName,
+  opportunityTitle,
+}) {
+  const subject = `Application Update: Under Review — ${opportunityTitle}`;
+  const preview = `Hi ${fullName}, your application for ${opportunityTitle} is now under review.`;
 
   const body = `
-  ${header('Application Update')}
+  ${header("Application Update")}
   <div class="tag-strip">
     <span class="tag" style="background:#f0fdf4;color:#166534;border-color:#16a34a22">&#128269; Application Status</span>
     <span class="tag" style="background:#f0fdf4;color:#166534;border-color:#16a34a22">Under Review</span>
@@ -547,17 +582,20 @@ export function buildReviewingNotificationEmail({ fullName, opportunityTitle }) 
     <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">Questions? Reply directly to this email and our team will get back to you.</p>
 
     <p class="intro" style="margin-top:20px">Warm regards,<br/><strong style="color:${COLOR.btnBg}">Team ${BRAND}</strong></p>
-  </div>`
+  </div>`;
 
-  return { subject, html: shell(preview, body) }
+  return { subject, html: shell(preview, body) };
 }
 
-export function buildShortlistNotificationEmail({ fullName, opportunityTitle }) {
-  const subject = `Congratulations! You've been shortlisted — ${opportunityTitle}`
-  const preview = `Great news, ${fullName}! Your application for ${opportunityTitle} has been shortlisted.`
+export function buildShortlistNotificationEmail({
+  fullName,
+  opportunityTitle,
+}) {
+  const subject = `Congratulations! You've been shortlisted — ${opportunityTitle}`;
+  const preview = `Great news, ${fullName}! Your application for ${opportunityTitle} has been shortlisted.`;
 
   const body = `
-  ${header('Great News!')}
+  ${header("Great News!")}
   <div class="tag-strip">
     <span class="tag" style="background:#f0fdf4;color:#166534;border-color:#16a34a22">&#127881; Application Status</span>
     <span class="tag" style="background:#f0fdf4;color:#166534;border-color:#16a34a22">Shortlisted</span>
@@ -589,17 +627,17 @@ export function buildShortlistNotificationEmail({ fullName, opportunityTitle }) 
     <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">Please keep a close watch on your email and phone so you don't miss our HR team's call.</p>
 
     <p class="intro" style="margin-top:20px">Looking forward to speaking with you,<br/><strong style="color:${COLOR.btnBg}">Team ${BRAND}</strong></p>
-  </div>`
+  </div>`;
 
-  return { subject, html: shell(preview, body) }
+  return { subject, html: shell(preview, body) };
 }
 
 export function buildHiredNotificationEmail({ fullName, opportunityTitle }) {
-  const subject = `Offer of Employment — ${opportunityTitle}`
-  const preview = `Dear ${fullName}, we are delighted to offer you the position of ${opportunityTitle} at Indocreonix.`
+  const subject = `Offer of Employment — ${opportunityTitle}`;
+  const preview = `Dear ${fullName}, we are delighted to offer you the position of ${opportunityTitle} at Indocreonix.`;
 
   const body = `
-  ${header('Offer of Employment')}
+  ${header("Offer of Employment")}
   <div class="tag-strip">
     <span class="tag" style="background:#f0fdf4;color:#166534;border-color:#16a34a22">&#11088; Formal Offer</span>
     <span class="tag" style="background:#f0fdf4;color:#166534;border-color:#16a34a22">Selected</span>
@@ -627,17 +665,17 @@ export function buildHiredNotificationEmail({ fullName, opportunityTitle }) {
     <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">A representative from Human Resources will contact you shortly to coordinate the delivery of your contractual documents and discuss the next formalities.</p>
 
     <p class="intro" style="margin-top:20px">We commend you on your successful interview process and look forward to welcoming you to the firm.<br/><br/>Sincerely,<br/><strong style="color:${COLOR.btnBg}">Human Resources<br/>Team ${BRAND}</strong></p>
-  </div>`
+  </div>`;
 
-  return { subject, html: shell(preview, body) }
+  return { subject, html: shell(preview, body) };
 }
 
 export function buildRejectedNotificationEmail({ fullName, opportunityTitle }) {
-  const subject = `Update regarding your application for ${opportunityTitle}`
-  const preview = `Dear ${fullName}, thank you for your patience. We have an update regarding your application.`
+  const subject = `Update regarding your application for ${opportunityTitle}`;
+  const preview = `Dear ${fullName}, thank you for your patience. We have an update regarding your application.`;
 
   const body = `
-  ${header('Application Update')}
+  ${header("Application Update")}
   <div class="tag-strip">
     <span class="tag" style="background:#f3f4f6;color:#374151;border-color:#6b728022">&#128269; Application Status</span>
     <span class="tag" style="background:#f3f4f6;color:#374151;border-color:#6b728022">Not Proceeding</span>
@@ -658,96 +696,102 @@ export function buildRejectedNotificationEmail({ fullName, opportunityTitle }) {
     <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">We will keep your resume on file and may reach out if a role matching your profile opens up in the future.</p>
 
     <p class="intro" style="margin-top:20px">We wish you the absolute best in your professional endeavours.<br/><br/>Sincerely,<br/><strong style="color:${COLOR.btnBg}">Human Resources<br/>Team ${BRAND}</strong></p>
-  </div>`
+  </div>`;
 
-  return { subject, html: shell(preview, body) }
+  return { subject, html: shell(preview, body) };
 }
 
 export async function sendStatusUpdateNotification(to, status, data) {
-  let payload
-  if (status === 'reviewing') payload = buildReviewingNotificationEmail(data)
-  else if (status === 'shortlisted') payload = buildShortlistNotificationEmail(data)
-  else if (status === 'hired') payload = buildHiredNotificationEmail(data)
-  else if (status === 'rejected') payload = buildRejectedNotificationEmail(data)
-  else return null
+  let payload;
+  if (status === "reviewing") payload = buildReviewingNotificationEmail(data);
+  else if (status === "shortlisted")
+    payload = buildShortlistNotificationEmail(data);
+  else if (status === "hired") payload = buildHiredNotificationEmail(data);
+  else if (status === "rejected")
+    payload = buildRejectedNotificationEmail(data);
+  else return null;
 
   return sendMail({
-    from:    `"${BRAND} Careers" <${getSenderAddress('careers')}>`,
+    from: `"${BRAND} Careers" <${getSenderAddress("careers")}>`,
     to,
     subject: payload.subject,
     html: payload.html,
-  })
+  });
 }
 
 /**
  * Contact form — confirmation to the person who wrote to us
  */
 export async function sendContactConfirmation(to, data) {
-  const { subject, html } = buildContactConfirmationEmail(data)
+  const { subject, html } = buildContactConfirmationEmail(data);
   return sendMail({
-    from:    `"${BRAND}" <${getSenderAddress('contact')}>`,
+    from: `"${BRAND}" <${getSenderAddress("contact")}>`,
     replyTo: env.resendContactFrom,
     to,
     subject,
     html,
-  })
+  });
 }
 
 /**
  * Contact form — internal notification to contact@indocreonix.com
  */
 export async function sendContactNotification(data) {
-  const { subject, html } = buildContactNotificationEmail(data)
+  const { subject, html } = buildContactNotificationEmail(data);
   return sendMail({
-    from:    `"${BRAND} Contact Bot" <${getSenderAddress('contact')}>`,
+    from: `"${BRAND} Contact Bot" <${getSenderAddress("contact")}>`,
     replyTo: data.email,
-    to:      env.resendContactFrom,
+    to: env.resendContactFrom,
     subject,
     html,
-  })
+  });
 }
 /**
  * Project form — confirmation to the client
  */
 export async function sendOrderConfirmation(to, data) {
-  const { subject, html } = buildOrderConfirmationEmail(data)
+  const { subject, html } = buildOrderConfirmationEmail(data);
   return sendMail({
-    from: `"${BRAND}" <${getSenderAddress('info')}>`,
+    from: `"${BRAND}" <${getSenderAddress("info")}>`,
     replyTo: env.resendInfoFrom,
     to,
     subject,
     html,
-  })
+  });
 }
 
 /**
  * Project form — internal notification to team
  */
 export async function sendOrderNotification(data) {
-  const { subject, html } = buildOrderNotificationEmail(data)
+  const { subject, html } = buildOrderNotificationEmail(data);
   return sendMail({
-    from: `"${BRAND} Order Bot" <${getSenderAddress('info')}>`,
+    from: `"${BRAND} Order Bot" <${getSenderAddress("info")}>`,
     replyTo: data.email,
     to: env.resendInfoFrom,
     subject,
     html,
-  })
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TEMPLATE 6 — PROJECT ORDER CONFIRMATION (to client)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function buildOrderConfirmationEmail({ fullName, projectCategory, projectSubtype }) {
-  const subject = `Project Request Received — ${projectCategory} | ${BRAND}`
-  const preview = `Hi ${fullName}, thank you for your project request for ${projectCategory}. Our team will review it and get back to you.`
+export function buildOrderConfirmationEmail({
+  fullName,
+  projectCategory,
+  projectSubtype,
+}) {
+  const subject = `Project Request Received — ${projectCategory} | ${BRAND}`;
+  const preview = `Hi ${fullName}, thank you for your project request for ${projectCategory}. Our team will review it and get back to you.`;
 
   const body = `
-  ${header('Project Request')}
+  ${header("Project Request")}
   <div class="tag-strip"><span class="tag">&#10003; Request Received</span><span class="tag" style="background:#ecfdf5;color:#065f46;border-color:#10b98122">Project Draft</span></div>
   <div class="body">
     <p class="greeting">Hello ${fullName},</p>
-    <p class="intro">Thank you for choosing <strong>${BRAND}</strong> for your project. We have received your request for a <strong>${projectCategory}${projectSubtype ? ` (${projectSubtype})` : ''}</strong>. Our engineering and project teams will review your requirements and reach out to you within <strong>1–2 business days</strong>.</p>
+    <p class="intro">Thank you for choosing <strong>${BRAND}</strong> for your project. We have received your request for a <strong>${projectCategory}${projectSubtype ? ` (${projectSubtype})` : ""}</strong>. Our engineering and project teams will review your requirements and reach out to you within <strong>1–2 business days</strong>.</p>
 
     <div class="box box-success">
       <div class="box-label">Request Status</div>
@@ -776,21 +820,33 @@ export function buildOrderConfirmationEmail({ fullName, projectCategory, project
 
     <p class="intro" style="margin-top:20px">Looking forward to building something great Together!<br/><br/>
     Warm regards,<br/><strong style="color:${COLOR.btnBg}">Team ${BRAND}</strong></p>
-  </div>`
+  </div>`;
 
-  return { subject, html: shell(preview, body) }
+  return { subject, html: shell(preview, body) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TEMPLATE 7 — INTERNAL: Project Order Notification (to team)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function buildOrderNotificationEmail({ fullName, email, phone, company, targetBudget, targetTimeline, projectCategory, projectSubtype, requestedService, businessGoals, projectSummary }) {
-  const subject = `[New Project Request] ${fullName} — ${projectCategory}`
-  const preview = `New project request from ${fullName} for ${projectCategory}. Review and respond.`
+export function buildOrderNotificationEmail({
+  fullName,
+  email,
+  phone,
+  company,
+  targetBudget,
+  targetTimeline,
+  projectCategory,
+  projectSubtype,
+  requestedService,
+  businessGoals,
+  projectSummary,
+}) {
+  const subject = `[New Project Request] ${fullName} — ${projectCategory}`;
+  const preview = `New project request from ${fullName} for ${projectCategory}. Review and respond.`;
 
   const body = `
-  ${header('New Project Request')}
+  ${header("New Project Request")}
   <div class="tag-strip">
     <span class="tag">&#128188; Project Enquiry</span>
     <span class="tag" style="background:#fff7ed;color:#c2410c;border-color:#ea580c22">High Priority</span>
@@ -802,23 +858,23 @@ export function buildOrderNotificationEmail({ fullName, email, phone, company, t
     <table class="info-table">
       <tr><td>Client Name</td><td><strong>${fullName}</strong></td></tr>
       <tr><td>Email</td><td><a href="mailto:${email}" style="color:${COLOR.accentDark}">${email}</a></td></tr>
-      <tr><td>Phone</td><td>${phone || '—'}</td></tr>
-      <tr><td>Company</td><td>${company || '—'}</td></tr>
+      <tr><td>Phone</td><td>${phone || "—"}</td></tr>
+      <tr><td>Company</td><td>${company || "—"}</td></tr>
       <tr><td>Category</td><td><strong>${projectCategory}</strong></td></tr>
-      <tr><td>Subtype</td><td>${projectSubtype || '—'}</td></tr>
-      <tr><td>Type</td><td>${requestedService || '—'}</td></tr>
-      <tr><td>Budget</td><td>${targetBudget || 'Not specified'}</td></tr>
-      <tr><td>Timeline</td><td>${targetTimeline || 'Not specified'}</td></tr>
+      <tr><td>Subtype</td><td>${projectSubtype || "—"}</td></tr>
+      <tr><td>Type</td><td>${requestedService || "—"}</td></tr>
+      <tr><td>Budget</td><td>${targetBudget || "Not specified"}</td></tr>
+      <tr><td>Timeline</td><td>${targetTimeline || "Not specified"}</td></tr>
     </table>
 
     <div class="box box-dark" style="padding:18px 22px;margin-top:4px">
       <div class="box-label">Business Goals</div>
-      <div class="box-value">${businessGoals || '—'}</div>
+      <div class="box-value">${businessGoals || "—"}</div>
     </div>
 
     <div class="box box-dark" style="padding:18px 22px;margin-top:4px">
       <div class="box-label">Project Summary</div>
-      <div class="box-value">${projectSummary || '—'}</div>
+      <div class="box-value">${projectSummary || "—"}</div>
     </div>
 
     <div class="box box-warn" style="font-size:14px;color:#78350f">
@@ -832,17 +888,17 @@ export function buildOrderNotificationEmail({ fullName, email, phone, company, t
 
     <div class="divider"></div>
     <p style="font-size:12px;color:${COLOR.mutedText}">This is an automated notification from the ${BRAND} project management system.</p>
-  </div>`
+  </div>`;
 
-  return { subject, html: shell(preview, body) }
+  return { subject, html: shell(preview, body) };
 }
 
 export function buildPortalOtpEmail({ name, otp, expiresInMinutes = 10 }) {
-  const subject = `Your ${BRAND} verification code: ${otp}`
-  const preview = `Hi ${name}, use ${otp} to verify your email and complete portal signup.`
+  const subject = `Your ${BRAND} verification code: ${otp}`;
+  const preview = `Hi ${name}, use ${otp} to verify your email and complete portal signup.`;
 
   const body = `
-  ${header('Portal Email Verification')}
+  ${header("Portal Email Verification")}
   <div class="tag-strip"><span class="tag">Secure OTP</span><span class="tag" style="background:#ecfdf5;color:#166534;border-color:#16a34a22">Signup Verification</span></div>
   <div class="body">
     <p class="greeting">Hello ${name},</p>
@@ -858,18 +914,18 @@ export function buildPortalOtpEmail({ name, otp, expiresInMinutes = 10 }) {
     </div>
 
     <p class="intro" style="margin-top:20px">If you did not request this code, you can ignore this email.</p>
-  </div>`
+  </div>`;
 
-  return { subject, html: shell(preview, body) }
+  return { subject, html: shell(preview, body) };
 }
 
 export async function sendPortalOtpEmail(to, data) {
-  const { subject, html } = buildPortalOtpEmail(data)
+  const { subject, html } = buildPortalOtpEmail(data);
   return sendMail({
-    from: `"${BRAND} Security" <${getSenderAddress('info')}>`,
+    from: `"${BRAND} Security" <${getSenderAddress("info")}>`,
     replyTo: env.resendInfoFrom,
     to,
     subject,
     html,
-  })
+  });
 }

@@ -12,6 +12,7 @@ import {
   deleteApplication,
 } from '../controllers/careerController.js'
 import { permit, protect, requirePermission } from '../middlewares/auth.js'
+import { protectPortalUser } from '../middlewares/portalAuth.js'
 import { uploadCvPdf } from '../middlewares/upload.js'
 
 const router = Router()
@@ -22,7 +23,7 @@ router.post('/opportunities', protect, permit('admin', 'editor'), requirePermiss
 router.put('/opportunities/:id', protect, permit('admin', 'editor'), requirePermission('openings'), updateOpportunity)
 router.delete('/opportunities/:id', protect, permit('admin'), requirePermission('openings'), deleteOpportunity)
 
-router.post('/applications', uploadCvPdf.single('cv'), submitApplication)
+router.post('/applications', protectPortalUser, uploadCvPdf.single('cv'), submitApplication)
 router.get('/applications', protect, permit('admin', 'editor'), requirePermission('applications'), getApplications)
 router.get('/applications/export.csv', protect, permit('admin', 'editor'), requirePermission('applications'), exportApplicationsCsv)
 router.patch('/applications/:id', protect, permit('admin', 'editor'), requirePermission('applications'), updateApplicationStatus)

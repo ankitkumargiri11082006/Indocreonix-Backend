@@ -12,6 +12,7 @@ export const ADMIN_PERMISSION_KEYS = [
   'openings',
   'applications',
   'users',
+  'portalControl',
   'integrations',
   'settings',
   'profile',

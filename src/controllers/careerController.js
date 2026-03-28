@@ -221,11 +221,27 @@ export const deleteOpportunity = asyncHandler(async (req, res) => {
 })
 
 export const submitApplication = asyncHandler(async (req, res) => {
+  const portalUser = req.portalUser
+  if (!portalUser) {
+    throw new ApiError(401, 'Sign in is required before applying')
+  }
+
+  if (!portalUser.isActive) {
+    throw new ApiError(403, 'Your portal account is disabled')
+  }
+
+  if (!portalUser.isEmailVerified) {
+    throw new ApiError(403, 'Verify your portal email before applying')
+  }
+
+  if (!portalUser.access?.career) {
+    throw new ApiError(403, 'Your account does not have career access')
+  }
+
   const {
     roleType,
     opportunityId,
     fullName,
-    email,
     phone,
     city,
     qualification,
@@ -236,8 +252,13 @@ export const submitApplication = asyncHandler(async (req, res) => {
     consentAccepted,
   } = req.body
 
-  if (!roleType || !fullName || !email || !phone || !city || !qualification || !skills || !experience || !message) {
+  if (!roleType || !fullName || !phone || !city || !qualification || !skills || !experience || !message) {
     throw new ApiError(400, 'Please fill all required fields')
+  }
+
+  const verifiedEmail = String(portalUser.email || '').toLowerCase().trim()
+  if (!verifiedEmail) {
+    throw new ApiError(400, 'Verified portal email is required')
   }
 
   if (!req.file) {
@@ -256,7 +277,7 @@ export const submitApplication = asyncHandler(async (req, res) => {
     roleType,
     opportunity: opportunityId || null,
     fullName,
-    email,
+    email: verifiedEmail,
     phone,
     city,
     qualification,
@@ -280,7 +301,7 @@ export const submitApplication = asyncHandler(async (req, res) => {
 
   const emailData = {
     fullName,
-    email,
+    email: verifiedEmail,
     phone,
     city,
     roleType,
@@ -293,7 +314,7 @@ export const submitApplication = asyncHandler(async (req, res) => {
   }
 
   // Confirmation to applicant (from careers@indocreonix.com)
-  sendApplicationConfirmation(email, emailData).catch((err) =>
+  sendApplicationConfirmation(verifiedEmail, emailData).catch((err) =>
     console.error('[Email] Application confirmation failed:', err.message)
   )
 

@@ -836,3 +836,40 @@ export function buildOrderNotificationEmail({ fullName, email, phone, company, t
 
   return { subject, html: shell(preview, body) }
 }
+
+export function buildPortalOtpEmail({ name, otp, expiresInMinutes = 10 }) {
+  const subject = `Your ${BRAND} verification code: ${otp}`
+  const preview = `Hi ${name}, use ${otp} to verify your email and complete portal signup.`
+
+  const body = `
+  ${header('Portal Email Verification')}
+  <div class="tag-strip"><span class="tag">Secure OTP</span><span class="tag" style="background:#ecfdf5;color:#166534;border-color:#16a34a22">Signup Verification</span></div>
+  <div class="body">
+    <p class="greeting">Hello ${name},</p>
+    <p class="intro">Use the OTP below to verify your email and finish your portal sign-up. This code is valid for <strong>${expiresInMinutes} minutes</strong>.</p>
+
+    <div class="box box-success" style="text-align:center">
+      <div class="box-label">One-Time Password</div>
+      <div class="box-value" style="font-size:34px;font-weight:800;letter-spacing:0.22em;color:#065f46">${otp}</div>
+    </div>
+
+    <div class="box box-blue" style="font-size:14px;color:#1e3a8a">
+      For your security, do not share this code with anyone. Indocreonix team members will never ask for your OTP.
+    </div>
+
+    <p class="intro" style="margin-top:20px">If you did not request this code, you can ignore this email.</p>
+  </div>`
+
+  return { subject, html: shell(preview, body) }
+}
+
+export async function sendPortalOtpEmail(to, data) {
+  const { subject, html } = buildPortalOtpEmail(data)
+  return sendMail({
+    from: `"${BRAND} Security" <${getSenderAddress('info')}>`,
+    replyTo: env.resendInfoFrom,
+    to,
+    subject,
+    html,
+  })
+}

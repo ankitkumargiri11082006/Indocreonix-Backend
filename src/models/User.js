@@ -42,6 +42,7 @@ const userSchema = new mongoose.Schema(
       openings: { type: Boolean, default: false },
       applications: { type: Boolean, default: false },
       users: { type: Boolean, default: false },
+      portalControl: { type: Boolean, default: false },
       integrations: { type: Boolean, default: false },
       settings: { type: Boolean, default: false },
       profile: { type: Boolean, default: false },

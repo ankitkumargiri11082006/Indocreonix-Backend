@@ -3,6 +3,10 @@ import { ApiError } from '../utils/apiError.js'
 import { User } from '../models/User.js'
 import { signToken } from '../utils/token.js'
 import { DEFAULT_ADMIN_PERMISSIONS } from '../constants/adminPermissions.js'
+import { env } from '../config/env.js'
+import { OAuth2Client } from 'google-auth-library'
+
+const googleClient = new OAuth2Client()
 
 function sanitizeUser(user) {
   return {
@@ -50,6 +54,63 @@ export const login = asyncHandler(async (req, res) => {
 
   res.json({
     message: 'Login successful',
+    token,
+    user: sanitizeUser(user),
+  })
+})
+
+export const loginWithGoogle = asyncHandler(async (req, res) => {
+  const { credential } = req.body
+
+  if (!credential) {
+    throw new ApiError(400, 'Google credential is required')
+  }
+
+  if (!env.googleClientId) {
+    throw new ApiError(500, 'GOOGLE_CLIENT_ID is not configured on server')
+  }
+
+  let payload
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: env.googleClientId,
+    })
+    payload = ticket.getPayload()
+  } catch {
+    throw new ApiError(401, 'Invalid Google credential')
+  }
+
+  const email = payload?.email?.toLowerCase?.().trim?.()
+  if (!email || payload?.email_verified !== true) {
+    throw new ApiError(401, 'Google account email is not verified')
+  }
+
+  const user = await User.findOne({ email })
+  if (!user) {
+    throw new ApiError(403, 'No admin account found for this Google email. Ask superadmin to create your account first.')
+  }
+
+  if (!user.isActive) {
+    throw new ApiError(403, 'Your account is disabled')
+  }
+
+  await ensureBootstrapSuperadmin(user)
+
+  if (!user.avatarUrl && payload?.picture) {
+    user.avatarUrl = payload.picture
+  }
+  if ((!user.name || user.name.trim().length < 2) && payload?.name) {
+    user.name = payload.name
+  }
+
+  user.lastLoginAt = new Date()
+  await user.save()
+
+  const token = signToken(user._id.toString())
+
+  res.json({
+    message: 'Google login successful',
     token,
     user: sanitizeUser(user),
   })

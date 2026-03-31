@@ -47,4 +47,5 @@ export const env = {
   resendInfoFrom: process.env.RESEND_INFO_FROM || process.env.RESEND_FROM || 'onboarding@resend.dev',
   resendContactFrom: process.env.RESEND_CONTACT_FROM || process.env.RESEND_FROM || 'onboarding@resend.dev',
   resendCareersFrom: process.env.RESEND_CAREERS_FROM || process.env.RESEND_FROM || 'onboarding@resend.dev',
+  resendHrFrom: process.env.RESEND_HR_FROM || process.env.RESEND_FROM || 'hr@indocreonix.com',
 }

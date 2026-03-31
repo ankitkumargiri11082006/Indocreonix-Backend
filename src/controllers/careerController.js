@@ -5,7 +5,7 @@ import { Opportunity } from '../models/Opportunity.js'
 import { CareerApplication } from '../models/CareerApplication.js'
 import { AdminAuditLog } from '../models/AdminAuditLog.js'
 import { clearCacheByNamespace, getCached, setCached } from '../utils/publicCache.js'
-import { sendApplicationConfirmation, sendApplicationNotification, sendStatusUpdateNotification } from '../utils/emailService.js'
+import { sendApplicationConfirmation, sendApplicationNotification, sendStatusUpdateNotification, sendOnboardingDocsRequestEmail } from '../utils/emailService.js'
 
 const OPPORTUNITIES_PUBLIC_CACHE_NAMESPACE = 'careers:opportunities:public'
 
@@ -430,6 +430,29 @@ export const updateApplicationStatus = asyncHandler(async (req, res) => {
   }
 
   res.json({ message: 'Application updated', item })
+})
+
+export const requestOnboardingDocs = asyncHandler(async (req, res) => {
+  const item = await CareerApplication.findById(req.params.id).populate('opportunity', 'title')
+  if (!item) throw new ApiError(404, 'Application not found')
+
+  const actionUrl = `${process.env.FRONTEND_URL || 'https://indocreonix.com'}/career/onboarding-documents`
+
+  await sendOnboardingDocsRequestEmail(item.email, {
+    fullName: item.fullName,
+    opportunityTitle: item.opportunity?.title || item.roleType,
+    actionUrl,
+  }).catch((err) => {
+    console.error('[Email] Onboarding docs request failed:', err.message)
+    throw new ApiError(500, 'Failed to send onboarding documents request')
+  })
+
+  await createAuditLog(req, 'REQUEST_ONBOARDING_DOCUMENTS', 'CareerApplication', item._id, {
+    email: item.email,
+    actionUrl,
+  })
+
+  res.json({ message: 'Onboarding docs request email sent' })
 })
 
 export const deleteApplication = asyncHandler(async (req, res) => {

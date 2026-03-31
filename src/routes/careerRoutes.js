@@ -9,6 +9,7 @@ import {
   getApplications,
   exportApplicationsCsv,
   updateApplicationStatus,
+  requestOnboardingDocs,
   deleteApplication,
 } from '../controllers/careerController.js'
 import { permit, protect, requirePermission } from '../middlewares/auth.js'
@@ -26,6 +27,7 @@ router.post('/applications', uploadCvPdf.single('cv'), submitApplication)
 router.get('/applications', protect, permit('admin', 'editor'), requirePermission('applications'), getApplications)
 router.get('/applications/export.csv', protect, permit('admin', 'editor'), requirePermission('applications'), exportApplicationsCsv)
 router.patch('/applications/:id', protect, permit('admin', 'editor'), requirePermission('applications'), updateApplicationStatus)
+router.post('/applications/:id/request-onboarding-docs', protect, permit('admin', 'editor'), requirePermission('applications'), requestOnboardingDocs)
 router.delete('/applications/:id', protect, permit('admin'), requirePermission('applications'), deleteApplication)
 
 export default router

@@ -44,6 +44,7 @@ const COLOR = {
 // ─── Sender Routing ───────────────────────────────────────────────────────────
 
 function getSenderAddress(kind = 'info') {
+  if (kind === 'hr') return env.resendHrFrom || 'hr@indocreonix.com'
   if (kind === 'careers') return env.resendCareersFrom
   if (kind === 'contact') return env.resendContactFrom
   return env.resendInfoFrom || env.resendFrom
@@ -506,6 +507,49 @@ export async function sendApplicationNotification(data) {
     from:    `"${BRAND} Careers Bot" <${getSenderAddress('careers')}>`,
     replyTo: data.email,
     to:      env.resendCareersFrom,
+    subject,
+    html,
+  })
+}
+
+export function buildOnboardingDocsRequestEmail({ fullName, opportunityTitle, actionUrl }) {
+  const subject = `Action Required: Please share your onboarding documents`
+  const preview = `Hi ${fullName}, please complete onboarding by uploading your documents.`
+
+  const body = `
+  ${header('Onboarding Documents Required')}
+  <div class="tag-strip"><span class="tag">📄 Documents Request</span><span class="tag" style="background:#fef9ec;color:#92400e;border-color:#f0a50022">${opportunityTitle || 'Career Role'}</span></div>
+  <div class="body">
+    <p class="greeting">Hello ${fullName},</p>
+    <p class="intro">Congratulations again on progressing through the application process. To continue onboarding, we need the following documents from you:</p>
+
+    <ul class="steps" style="list-style-type:none;padding-left:0">
+      <li class="step-num" style="display:inline-block;min-width:auto;font-size:15px;margin-bottom:8px">✅ Aadhar card</li>
+      <li class="step-num" style="display:inline-block;min-width:auto;font-size:15px;margin-bottom:8px">✅ PAN card</li>
+      <li class="step-num" style="display:inline-block;min-width:auto;font-size:15px;margin-bottom:8px">✅ Academic certificates</li>
+      <li class="step-num" style="display:inline-block;min-width:auto;font-size:15px;margin-bottom:8px">✅ Bank passbook (if salary paid)</li>
+      <li class="step-num" style="display:inline-block;min-width:auto;font-size:15px;margin-bottom:8px">✅ Passport size photo</li>
+    </ul>
+
+    <div class="btn-wrap">
+      <a href="${actionUrl}" class="cta-btn">Upload Documents</a>
+    </div>
+
+    <div class="divider"></div>
+    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">If you have any questions, reply to this email or contact HR at <a href="mailto:hr@indocreonix.com" style="color:${COLOR.accentDark}">hr@indocreonix.com</a>.</p>
+
+    <p class="intro" style="margin-top:20px">Thank you,<br/><strong style="color:${COLOR.btnBg}">Indocreonix HR Team</strong></p>
+  </div>`
+
+  return { subject, html: shell(preview, body) }
+}
+
+export async function sendOnboardingDocsRequestEmail(to, data) {
+  const { subject, html } = buildOnboardingDocsRequestEmail(data)
+  return sendMail({
+    from: `"${BRAND} HR" <${getSenderAddress('hr')}>`,
+    replyTo: 'hr@indocreonix.com',
+    to,
     subject,
     html,
   })

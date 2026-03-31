@@ -464,18 +464,25 @@ export const submitOnboardingDocs = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'No PDF uploaded. Please attach your onboarding documents PDF.')
   }
 
-  // Upload the single PDF to Cloudinary
-  const folder = `indocreonix/onboarding-docs`
-  const safeName = file.originalname.toLowerCase().replace(/[^a-z0-9.\-_]/g, '-').replace(/-+/g, '-')
+  // Upload to Cloudinary exactly like CV — resource_type:'image', format:'pdf', anonymous access
+  const safeBaseName = file.originalname
+    .toLowerCase()
+    .replace(/\.pdf$/i, '')
+    .replace(/[^a-z0-9\-_]/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 60)
 
   const uploadResult = await new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder,
-        resource_type: 'raw',
+        folder: 'indocreonix/onboarding-docs',
+        resource_type: 'image',
         format: 'pdf',
-        public_id: `${item._id}-${Date.now()}-${safeName}`,
+        public_id: `docs-${item._id}-${Date.now()}-${safeBaseName}`,
         use_filename: false,
+        unique_filename: false,
+        overwrite: false,
+        access_control: [{ access_type: 'anonymous' }],
       },
       (error, result) => {
         if (error) return reject(error)
@@ -487,7 +494,7 @@ export const submitOnboardingDocs = asyncHandler(async (req, res) => {
 
   item.onboardingDocsUrl = uploadResult.secure_url || uploadResult.url
   item.onboardingDocsPublicId = uploadResult.public_id
-  item.onboardingDocsResourceType = 'raw'
+  item.onboardingDocsResourceType = 'image'
   item.onboardingDocsSubmittedAt = new Date()
   await item.save()
 
@@ -497,6 +504,7 @@ export const submitOnboardingDocs = asyncHandler(async (req, res) => {
 
   res.json({ message: 'Onboarding documents submitted successfully' })
 })
+
 
 
 

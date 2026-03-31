@@ -80,25 +80,15 @@ export const uploadOrderDocuments = orderDocumentsUpload.fields([
   { name: 'supportingDocs', maxCount: 3 },
 ])
 
-// ── Onboarding documents upload (images OR PDFs, one per slot) ──────────────
-const onboardingDocFields = ['aadhaar', 'pan', 'academic', 'bank', 'photo', 'emergency']
-
-const uploadOnboardingDocsMulter = multer({
+// ── Single onboarding PDF upload ─────────────────────────────────────────────
+export const uploadOnboardingDocs = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024, files: 6 },
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, callback) => {
-    const ok =
-      file.mimetype?.startsWith('image/') ||
-      file.mimetype === 'application/pdf'
-    if (!ok) {
-      callback(new Error('Only images (JPG/PNG) and PDF files are allowed'))
+    if (file.mimetype !== 'application/pdf') {
+      callback(new Error('Only PDF files are accepted for onboarding documents'))
       return
     }
     callback(null, true)
   },
-})
-
-export const uploadOnboardingDocs = uploadOnboardingDocsMulter.fields(
-  onboardingDocFields.map((name) => ({ name, maxCount: 1 }))
-)
-
+}).single('documents')

@@ -513,32 +513,80 @@ export async function sendApplicationNotification(data) {
 }
 
 export function buildOnboardingDocsRequestEmail({ fullName, opportunityTitle, actionUrl }) {
-  const subject = `Action Required: Please share your onboarding documents`
-  const preview = `Hi ${fullName}, please complete onboarding by uploading your documents.`
+  const subject = `Action Required: Submit Your Onboarding Documents — ${BRAND}`
+  const preview = `Hi ${fullName}, congratulations! Please submit the required documents to complete your onboarding at ${BRAND}.`
+
+  const docRow = (icon, title, note) => `
+    <tr>
+      <td style="padding:13px 16px;border-bottom:1px solid ${COLOR.border};vertical-align:middle;width:48px;font-size:22px;line-height:1;text-align:center">${icon}</td>
+      <td style="padding:13px 16px;border-bottom:1px solid ${COLOR.border};vertical-align:top">
+        <div style="font-weight:700;font-size:15px;color:${COLOR.bodyText};margin-bottom:2px">${title}</div>
+        <div style="font-size:13px;color:${COLOR.mutedText};line-height:1.5">${note}</div>
+      </td>
+    </tr>`
 
   const body = `
   ${header('Onboarding Documents Required')}
-  <div class="tag-strip"><span class="tag">📄 Documents Request</span><span class="tag" style="background:#fef9ec;color:#92400e;border-color:#f0a50022">${opportunityTitle || 'Career Role'}</span></div>
+  <div class="tag-strip">
+    <span class="tag" style="background:#ecfdf5;color:#065f46;border-color:#10b98122">&#10003; Offer Accepted</span>
+    <span class="tag" style="background:#fef9ec;color:#92400e;border-color:#f0a50022">${opportunityTitle || 'Career Role'}</span>
+  </div>
   <div class="body">
-    <p class="greeting">Hello ${fullName},</p>
-    <p class="intro">Congratulations again on progressing through the application process. To continue onboarding, we need the following documents from you:</p>
+    <p class="greeting">Dear ${fullName},</p>
+    <p class="intro">Congratulations on your successful selection at <strong>${BRAND}</strong>! We are delighted to welcome you aboard. As part of the formal onboarding process, we require the following documents to be submitted at your earliest convenience.</p>
 
-    <ul class="steps" style="list-style-type:none;padding-left:0">
-      <li class="step-num" style="display:inline-block;min-width:auto;font-size:15px;margin-bottom:8px">✅ Aadhar card</li>
-      <li class="step-num" style="display:inline-block;min-width:auto;font-size:15px;margin-bottom:8px">✅ PAN card</li>
-      <li class="step-num" style="display:inline-block;min-width:auto;font-size:15px;margin-bottom:8px">✅ Academic certificates</li>
-      <li class="step-num" style="display:inline-block;min-width:auto;font-size:15px;margin-bottom:8px">✅ Bank passbook (if salary paid)</li>
-      <li class="step-num" style="display:inline-block;min-width:auto;font-size:15px;margin-bottom:8px">✅ Passport size photo</li>
-    </ul>
+    <div class="box box-blue" style="font-size:14px;color:#1e3a8a;">
+      &#128276; <strong>Please submit all documents within 3 working days</strong> to avoid any delay in your joining process.
+    </div>
 
-    <div class="btn-wrap">
-      <a href="${actionUrl}" class="cta-btn">Upload Documents</a>
+    <div style="margin:20px 0;border:1px solid ${COLOR.border};border-radius:12px;overflow:hidden;">
+      <div style="background:#0a1f3d;padding:12px 18px;">
+        <span style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#ffffff;">Required Documents</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;background:#ffffff;font-family:'Inter',Arial,sans-serif;">
+        ${docRow('&#127974;', 'Aadhaar Card', 'Front and back copy — self-attested photocopy or clear scan')}
+        ${docRow('&#128196;', 'PAN Card', 'Photocopy or scan of your Permanent Account Number card')}
+        ${docRow('&#127891;', 'Academic Certificates', 'Highest qualification certificate &amp; marksheets (all semesters if applicable)')}
+        ${docRow('&#127968;', 'Bank Passbook / Cancelled Cheque', 'Required for salary account setup — first page showing your account details')}
+        ${docRow('&#128247;', 'Passport Size Photograph', '2 recent colour passport photographs (white or light background preferred)')}
+        ${docRow('&#128222;', 'Emergency Contact Details', 'Name, relationship, and phone number of a family member')}
+      </table>
+    </div>
+
+    <div class="box box-warn" style="font-size:14px;color:#78350f;">
+      &#9888;&#65039; <strong>Important:</strong> All documents must be self-attested (signed by you). Originals may be required for verification on your joining date.
+    </div>
+
+    <p style="font-size:15px;color:${COLOR.bodyText};margin:20px 0 10px;font-weight:600;">How to submit your documents:</p>
+    <div class="box box-dark" style="padding:18px 22px;margin-top:0;">
+      <div class="box-label" style="margin-bottom:12px;">Submission Options</div>
+      <ul class="steps">
+        <li>
+          <span class="step-num">1</span>
+          <span><strong>Online Upload</strong> — Click the button below to securely upload your documents via our onboarding portal.</span>
+        </li>
+        <li>
+          <span class="step-num">2</span>
+          <span><strong>Email Submission</strong> — Attach scanned copies and email them directly to <a href="mailto:hr@indocreonix.com" style="color:${COLOR.accentDark}">hr@indocreonix.com</a>.</span>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <span><strong>In-Person</strong> — Originals can also be brought on your first day at the office.</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="btn-wrap" style="text-align:center;">
+      <a href="${actionUrl}" class="cta-btn" style="display:inline-block;background:#0a1f3d;color:#ffffff!important;padding:15px 38px;border-radius:10px;font-size:16px;font-weight:700;text-decoration:none!important;letter-spacing:0.3px;">
+        &#128196;&nbsp; Upload Documents Now
+      </a>
     </div>
 
     <div class="divider"></div>
-    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">If you have any questions, reply to this email or contact HR at <a href="mailto:hr@indocreonix.com" style="color:${COLOR.accentDark}">hr@indocreonix.com</a>.</p>
+    <p class="intro" style="font-size:14px;color:${COLOR.mutedText};">If you have any questions or require assistance, please reach our HR team at <a href="mailto:hr@indocreonix.com" style="color:${COLOR.accentDark};font-weight:600;">hr@indocreonix.com</a>. We are happy to guide you through the process.</p>
 
-    <p class="intro" style="margin-top:20px">Thank you,<br/><strong style="color:${COLOR.btnBg}">Indocreonix HR Team</strong></p>
+    <p class="intro" style="margin-top:24px;">We look forward to welcoming you to the team!<br/><br/>
+    Warm regards,<br/><strong style="color:${COLOR.btnBg};">Human Resources Team<br/>${BRAND}</strong></p>
   </div>`
 
   return { subject, html: shell(preview, body) }

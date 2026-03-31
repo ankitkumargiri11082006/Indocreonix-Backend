@@ -455,6 +455,81 @@ export const requestOnboardingDocs = asyncHandler(async (req, res) => {
   res.json({ message: 'Onboarding docs request email sent' })
 })
 
+export const submitOnboardingDocs = asyncHandler(async (req, res) => {
+  const item = await CareerApplication.findById(req.params.id)
+  if (!item) throw new ApiError(404, 'Application not found')
+
+  const fieldFiles = req.files || {}
+  const allFiles = Object.values(fieldFiles).flat().filter(Boolean)
+
+  if (!allFiles.length) {
+    throw new ApiError(400, 'No documents uploaded. Please attach at least one file.')
+  }
+
+  // Upload every file to Cloudinary
+  const uploadedUrls = []
+
+  const uploadFileToCloudinary = (fileBuffer, originalname, format, folder) =>
+    new Promise((resolve, reject) => {
+      const safeName = originalname
+        .toLowerCase()
+        .replace(/[^a-z0-9.\-_]/g, '-')
+        .replace(/-+/g, '-')
+
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder,
+          resource_type: 'raw',
+          format,
+          public_id: `${Date.now()}-${safeName}`,
+          use_filename: false,
+          access_control: [{ access_type: 'anonymous' }],
+        },
+        (error, result) => {
+          if (error) return reject(error)
+          return resolve(result)
+        }
+      )
+      stream.end(fileBuffer)
+    })
+
+  const folder = `indocreonix/onboarding-docs/${item._id}`
+
+  for (const fieldName of ['aadhaar', 'pan', 'academic', 'bank', 'photo', 'emergency']) {
+    const fileArr = fieldFiles[fieldName]
+    if (!fileArr?.length) continue
+    const file = fileArr[0]
+    const isPdf = file.mimetype === 'application/pdf'
+    const ext = isPdf ? 'pdf' : file.originalname.split('.').pop() || 'jpg'
+    try {
+      const uploaded = await uploadFileToCloudinary(file.buffer, `${fieldName}.${ext}`, ext, folder)
+      uploadedUrls.push(uploaded.secure_url || uploaded.url || '')
+    } catch (err) {
+      console.error(`[Onboarding] Failed to upload ${fieldName}:`, err.message)
+    }
+  }
+
+  if (!uploadedUrls.length) {
+    throw new ApiError(500, 'All uploads failed. Please try again.')
+  }
+
+  // Store all URLs as a JSON array in onboardingDocsUrl (comma-separated for simplicity)
+  item.onboardingDocsUrl = uploadedUrls.join(',')
+  item.onboardingDocsPublicId = folder
+  item.onboardingDocsResourceType = 'raw'
+  item.onboardingDocsSubmittedAt = new Date()
+  await item.save()
+
+  await createAuditLog(req, 'SUBMIT_ONBOARDING_DOCS', 'CareerApplication', item._id, {
+    filesUploaded: uploadedUrls.length,
+    folder,
+  })
+
+  res.json({ message: 'Onboarding documents submitted successfully', count: uploadedUrls.length })
+})
+
+
+
 export const deleteApplication = asyncHandler(async (req, res) => {
   const item = await CareerApplication.findById(req.params.id)
 

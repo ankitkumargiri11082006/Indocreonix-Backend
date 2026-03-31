@@ -10,10 +10,11 @@ import {
   exportApplicationsCsv,
   updateApplicationStatus,
   requestOnboardingDocs,
+  submitOnboardingDocs,
   deleteApplication,
 } from '../controllers/careerController.js'
 import { permit, protect, requirePermission } from '../middlewares/auth.js'
-import { uploadCvPdf } from '../middlewares/upload.js'
+import { uploadCvPdf, uploadOnboardingDocs } from '../middlewares/upload.js'
 
 const router = Router()
 
@@ -28,6 +29,7 @@ router.get('/applications', protect, permit('admin', 'editor'), requirePermissio
 router.get('/applications/export.csv', protect, permit('admin', 'editor'), requirePermission('applications'), exportApplicationsCsv)
 router.patch('/applications/:id', protect, permit('admin', 'editor'), requirePermission('applications'), updateApplicationStatus)
 router.post('/applications/:id/request-onboarding-docs', protect, permit('admin', 'editor'), requirePermission('applications'), requestOnboardingDocs)
+router.post('/applications/:id/submit-onboarding-docs', uploadOnboardingDocs, submitOnboardingDocs)
 router.delete('/applications/:id', protect, permit('admin'), requirePermission('applications'), deleteApplication)
 
 export default router

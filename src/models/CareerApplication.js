@@ -53,6 +53,10 @@ const careerApplicationSchema = new mongoose.Schema(
       default: null,
     },
     adminNotes: { type: String, default: '' },
+    onboardingDocsUrl: { type: String, default: '' },
+    onboardingDocsPublicId: { type: String, default: '' },
+    onboardingDocsResourceType: { type: String, enum: ['image', 'raw'], default: 'raw' },
+    onboardingDocsSubmittedAt: { type: Date, default: null },
   },
   { timestamps: true }
 )

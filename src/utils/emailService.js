@@ -880,3 +880,47 @@ export function buildOrderNotificationEmail({ fullName, email, phone, company, t
 
   return { subject, html: shell(preview, body) }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TEMPLATE 8 — PORTAL OTP VERIFICATION (to portal user)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildPortalOtpEmail({ name, otp, expiresInMinutes }) {
+  const subject = `Your Verification Code — ${BRAND} Portal`
+  const preview = `Hi ${name}, your OTP code is ${otp}. It expires in ${expiresInMinutes} minutes.`
+
+  const body = `
+  ${header('Portal Verification')}
+  <div class="tag-strip"><span class="tag">&#128274; Email Verification</span><span class="tag" style="background:#fef9ec;color:#92400e;border-color:#f0a50022">OTP Code</span></div>
+  <div class="body">
+    <p class="greeting">Hello ${name},</p>
+    <p class="intro">You requested access to the <strong>${BRAND} Portal</strong>. Use the verification code below to complete your sign-up or login. This code is valid for <strong>${expiresInMinutes} minutes</strong>.</p>
+
+    <div class="box" style="background:#f0fdf4;border-left:4px solid #16a34a;text-align:center;padding:28px 22px">
+      <div class="box-label" style="color:#15803d;margin-bottom:12px">Your One-Time Password</div>
+      <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#065f46;font-family:'Inter',monospace">${otp}</div>
+      <div style="margin-top:12px;font-size:13px;color:${COLOR.mutedText}">Expires in <strong>${expiresInMinutes} minutes</strong></div>
+    </div>
+
+    <div class="box box-warn" style="font-size:14px;color:#78350f;margin-top:16px">
+      ⚠️ <strong>Do not share this code with anyone.</strong> ${BRAND} will never ask you for your OTP via phone or chat.
+    </div>
+
+    <div class="divider"></div>
+    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">If you did not request this code, you can safely ignore this email. No account changes will be made.</p>
+
+    <p class="intro" style="margin-top:20px">Warm regards,<br/><strong style="color:${COLOR.btnBg}">Team ${BRAND}</strong></p>
+  </div>`
+
+  return { subject, html: shell(preview, body) }
+}
+
+export async function sendPortalOtpEmail(to, data) {
+  const { subject, html } = buildPortalOtpEmail(data)
+  return sendMail({
+    from: `"${BRAND}" <${getSenderAddress('info')}>`,
+    to,
+    subject,
+    html,
+  })
+}

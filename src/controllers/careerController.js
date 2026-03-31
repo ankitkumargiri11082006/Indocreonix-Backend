@@ -436,7 +436,7 @@ export const requestOnboardingDocs = asyncHandler(async (req, res) => {
   const item = await CareerApplication.findById(req.params.id).populate('opportunity', 'title')
   if (!item) throw new ApiError(404, 'Application not found')
 
-  const actionUrl = `${process.env.FRONTEND_URL || 'https://indocreonix.com'}/career/onboarding-documents`
+  const actionUrl = `${process.env.FRONTEND_URL || 'https://indocreonix.com'}/career/onboarding-documents?token=${item._id}`
 
   await sendOnboardingDocsRequestEmail(item.email, {
     fullName: item.fullName,

@@ -516,14 +516,28 @@ export function buildOnboardingDocsRequestEmail({ fullName, opportunityTitle, ac
   const subject = `Action Required: Submit Your Onboarding Documents — ${BRAND}`
   const preview = `Hi ${fullName}, congratulations! Please submit the required documents to complete your onboarding at ${BRAND}.`
 
-  const docRow = (icon, title, note) => `
+  let _rowNum = 0
+  const docRow = (title, note) => {
+    _rowNum++
+    const num = _rowNum
+    return `
     <tr>
-      <td style="padding:13px 16px;border-bottom:1px solid ${COLOR.border};vertical-align:middle;width:48px;font-size:22px;line-height:1;text-align:center">${icon}</td>
-      <td style="padding:13px 16px;border-bottom:1px solid ${COLOR.border};vertical-align:top">
-        <div style="font-weight:700;font-size:15px;color:${COLOR.bodyText};margin-bottom:2px">${title}</div>
-        <div style="font-size:13px;color:${COLOR.mutedText};line-height:1.5">${note}</div>
+      <td style="padding:12px 14px 12px 16px;border-bottom:1px solid ${COLOR.border};vertical-align:middle;width:52px;">
+        <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+          <tr>
+            <td width="32" height="32" align="center" valign="middle"
+              style="width:32px;height:32px;background:#0a1f3d;border-radius:50%;font-family:Arial,sans-serif;font-size:14px;font-weight:700;color:#ffffff;line-height:32px;text-align:center;">
+              ${num}
+            </td>
+          </tr>
+        </table>
+      </td>
+      <td style="padding:12px 16px 12px 4px;border-bottom:1px solid ${COLOR.border};vertical-align:middle;">
+        <div style="font-weight:700;font-size:14px;color:${COLOR.bodyText};margin-bottom:3px;line-height:1.3;">${title}</div>
+        <div style="font-size:12px;color:${COLOR.mutedText};line-height:1.5;">${note}</div>
       </td>
     </tr>`
+  }
 
   const body = `
   ${header('Onboarding Documents Required')}
@@ -544,12 +558,12 @@ export function buildOnboardingDocsRequestEmail({ fullName, opportunityTitle, ac
         <span style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#ffffff;">Required Documents</span>
       </div>
       <table style="width:100%;border-collapse:collapse;background:#ffffff;font-family:'Inter',Arial,sans-serif;">
-        ${docRow('&#127974;', 'Aadhaar Card', 'Front and back copy — self-attested photocopy or clear scan')}
-        ${docRow('&#128196;', 'PAN Card', 'Photocopy or scan of your Permanent Account Number card')}
-        ${docRow('&#127891;', 'Academic Certificates', 'Highest qualification certificate &amp; marksheets (all semesters if applicable)')}
-        ${docRow('&#127968;', 'Bank Passbook / Cancelled Cheque', 'Required for salary account setup — first page showing your account details')}
-        ${docRow('&#128247;', 'Passport Size Photograph', '2 recent colour passport photographs (white or light background preferred)')}
-        ${docRow('&#128222;', 'Emergency Contact Details', 'Name, relationship, and phone number of a family member')}
+        ${docRow('Aadhaar Card', 'Front and back copy &mdash; self-attested photocopy or clear scan')}
+        ${docRow('PAN Card', 'Photocopy or scan of your Permanent Account Number card')}
+        ${docRow('Academic Certificates', 'Highest qualification certificate &amp; marksheets (all semesters if applicable)')}
+        ${docRow('Bank Passbook / Cancelled Cheque', 'Required for salary account setup &mdash; first page showing your account details')}
+        ${docRow('Passport Size Photograph', '2 recent colour passport photographs (white or light background preferred)')}
+        ${docRow('Emergency Contact Details', 'Name, relationship, and phone number of a family member')}
       </table>
     </div>
 

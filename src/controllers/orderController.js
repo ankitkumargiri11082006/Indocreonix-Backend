@@ -40,12 +40,16 @@ function buildDownloadFilename(originalname = '', fallbackExtension = '') {
 function uploadRawFileToCloudinary(fileBuffer, originalname, folder) {
   return new Promise((resolve, reject) => {
     const safeBaseName = sanitizeFileBaseName(originalname)
+    const extension = extractFileExtension(originalname)
+    const timestampedBase = `${safeBaseName}-${Date.now()}`
+    const publicId = extension ? `${timestampedBase}.${extension}` : timestampedBase
 
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder,
         resource_type: 'raw',
-        public_id: `${safeBaseName}-${Date.now()}`,
+        public_id: publicId,
+        ...(extension ? { format: extension } : {}),
         use_filename: false,
         unique_filename: false,
         overwrite: false,

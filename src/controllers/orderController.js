@@ -88,7 +88,7 @@ function getCloudinaryUrl(publicId, { resourceType = 'raw', format = '', downloa
     if (downloadName) {
       urlOptions.attachment = downloadName
     }
-  } else {
+  } else if (resourceType === 'raw') {
     urlOptions.flags = 'inline'
   }
 

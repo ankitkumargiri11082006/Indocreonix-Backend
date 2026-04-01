@@ -37,7 +37,7 @@ function buildDownloadFilename(originalname = '', fallbackExtension = '') {
   return `${sanitized}.${normalizedExtension}`
 }
 
-function uploadFileToCloudinary(fileBuffer, originalname, folder) {
+function uploadRawFileToCloudinary(fileBuffer, originalname, folder) {
   return new Promise((resolve, reject) => {
     const safeBaseName = sanitizeFileBaseName(originalname)
     const extension = extractFileExtension(originalname)
@@ -49,7 +49,7 @@ function uploadFileToCloudinary(fileBuffer, originalname, folder) {
         folder,
         resource_type: 'raw',
         public_id: publicId,
-        access_control: [{ access_type: 'anonymous' }],
+        ...(extension ? { format: extension } : {}),
         use_filename: false,
         unique_filename: false,
         overwrite: false,
@@ -69,44 +69,69 @@ function isForcedDownloadUrl(url = '') {
   return /fl_attachment|response-content-disposition=attachment/i.test(url)
 }
 
-function getCloudinaryPreviewUrl(publicId, resourceType = 'raw') {
+function getCloudinaryRawUrl(publicId, { downloadName = '', attachment = false } = {}) {
   if (!publicId) return ''
-  const extension = extractFileExtension(publicId) || 'bin'
-  const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 6
-  try {
-    return cloudinary.utils.private_download_url(publicId, extension, {
-      resource_type: resourceType,
-      type: 'upload',
-      expires_at: expiresAt,
-      attachment: false,
-    })
-  } catch {
-    return cloudinary.url(publicId, {
-      resource_type: resourceType,
-      type: 'upload',
-      secure: true,
-    })
+
+  const urlOptions = {
+    resource_type: 'raw',
+    type: 'upload',
+    secure: true,
   }
+
+  if (attachment) {
+    urlOptions.flags = 'attachment'
+    if (downloadName) {
+      urlOptions.attachment = downloadName
+    }
+  } else {
+    urlOptions.flags = 'inline'
+  }
+
+  return cloudinary.url(publicId, urlOptions)
 }
 
-function getCloudinaryDownloadUrl(publicId, downloadName = '', resourceType = 'raw') {
-  if (!publicId) return ''
-  const extension = extractFileExtension(downloadName || publicId) || 'bin'
-  const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 6
-  try {
-    return cloudinary.utils.private_download_url(publicId, extension, {
-      resource_type: resourceType,
-      type: 'upload',
-      expires_at: expiresAt,
+function normalizeProjectOrder(item) {
+  if (!item) return null
+  const record = typeof item.toObject === 'function' ? item.toObject() : { ...item }
+
+  const prdDownloadName = buildDownloadFilename(record.prdOriginalName, record.prdFormat)
+  const storedPrdUrl = isForcedDownloadUrl(record.prdUrl) ? '' : record.prdUrl || ''
+  const storedPrdDownloadUrl = record.prdDownloadUrl || ''
+  const prdPreviewUrl = storedPrdUrl || getCloudinaryRawUrl(record.prdPublicId) || ''
+  const prdDownloadUrl =
+    storedPrdDownloadUrl ||
+    getCloudinaryRawUrl(record.prdPublicId, {
+      downloadName: prdDownloadName,
       attachment: true,
-    })
-  } catch {
-    return cloudinary.url(publicId, {
-      resource_type: resourceType,
-      type: 'upload',
-      secure: true,
-      flags: 'attachment',
-    })
+    }) ||
+    prdPreviewUrl
+
+  const normalizedDocuments = (record.supportingDocuments || []).map((entry) => {
+    const document = typeof entry.toObject === 'function' ? entry.toObject() : { ...entry }
+    const documentDownloadName = buildDownloadFilename(document.name, document.format)
+    const storedDocumentUrl = isForcedDownloadUrl(document.url) ? '' : document.url || ''
+    const storedDocumentDownloadUrl = document.downloadUrl || ''
+    const documentPreviewUrl = storedDocumentUrl || getCloudinaryRawUrl(document.publicId) || ''
+    const documentDownloadUrl =
+      storedDocumentDownloadUrl ||
+      getCloudinaryRawUrl(document.publicId, {
+        downloadName: documentDownloadName,
+        attachment: true,
+      }) ||
+      documentPreviewUrl
+
+    return {
+      ...document,
+      url: documentPreviewUrl,
+      downloadUrl: documentDownloadUrl,
+    }
+  })
+
+  return {
+    ...record,
+    prdUrl: prdPreviewUrl,
+    prdDownloadUrl,
+    supportingDocuments: normalizedDocuments,
   }
 }
 
@@ -146,27 +171,29 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
     prdOriginalName: '',
     prdBytes: 0,
     prdFormat: '',
-    prdResourceType: '',
   }
 
   if (prdFile) {
     const prdExtension = extractFileExtension(prdFile.originalname) || 'pdf'
     const downloadName = buildDownloadFilename(prdFile.originalname, prdExtension)
-    const uploadedPrd = await uploadFileToCloudinary(
+    const uploadedPrd = await uploadRawFileToCloudinary(
       prdFile.buffer,
       prdFile.originalname,
       'indocreonix/orders/prd'
     )
-    const prdPreviewUrl = uploadedPrd.secure_url || getCloudinaryPreviewUrl(uploadedPrd.public_id)
+    const prdPreviewUrl = getCloudinaryRawUrl(uploadedPrd.public_id) || uploadedPrd.secure_url
 
     prdMeta = {
       prdUrl: prdPreviewUrl,
-      prdDownloadUrl: getCloudinaryDownloadUrl(uploadedPrd.public_id, downloadName) || prdPreviewUrl,
+      prdDownloadUrl:
+        getCloudinaryRawUrl(uploadedPrd.public_id, {
+          downloadName,
+          attachment: true,
+        }) || prdPreviewUrl,
       prdPublicId: uploadedPrd.public_id,
       prdOriginalName: prdFile.originalname,
       prdBytes: prdFile.size,
       prdFormat: uploadedPrd.format || prdExtension,
-      prdResourceType: 'raw',
     }
   }
 
@@ -174,21 +201,24 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
   for (const file of supportingFiles) {
     const extension = extractFileExtension(file.originalname)
     const downloadName = buildDownloadFilename(file.originalname, extension)
-    const uploadedDocument = await uploadFileToCloudinary(
+    const uploadedDocument = await uploadRawFileToCloudinary(
       file.buffer,
       file.originalname,
       'indocreonix/orders/supporting-docs'
     )
-    const documentPreviewUrl = uploadedDocument.secure_url || getCloudinaryPreviewUrl(uploadedDocument.public_id)
+    const documentPreviewUrl = getCloudinaryRawUrl(uploadedDocument.public_id) || uploadedDocument.secure_url
 
     supportingDocuments.push({
       name: file.originalname,
       url: documentPreviewUrl,
-      downloadUrl: getCloudinaryDownloadUrl(uploadedDocument.public_id, downloadName) || documentPreviewUrl,
+      downloadUrl:
+        getCloudinaryRawUrl(uploadedDocument.public_id, {
+          downloadName,
+          attachment: true,
+        }) || documentPreviewUrl,
       publicId: uploadedDocument.public_id,
       bytes: file.size,
       format: uploadedDocument.format || extension,
-      resourceType: 'raw',
     })
   }
 
@@ -224,38 +254,7 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
 export const getProjectOrders = asyncHandler(async (_req, res) => {
   const items = await ProjectOrder.find().sort({ createdAt: -1 }).lean()
 
-  const normalizedItems = items.map((item) => {
-    const prdDownloadName = buildDownloadFilename(item.prdOriginalName, item.prdFormat)
-    const storedPrdUrl = isForcedDownloadUrl(item.prdUrl) ? '' : item.prdUrl || ''
-    const prdResType = item.prdResourceType || 'raw'
-    const prdPreviewUrl = getCloudinaryPreviewUrl(item.prdPublicId, prdResType) || storedPrdUrl || ''
-    const prdDownloadUrl =
-      getCloudinaryDownloadUrl(item.prdPublicId, prdDownloadName, prdResType) ||
-      item.prdDownloadUrl ||
-      prdPreviewUrl
-
-    return {
-      ...item,
-      prdUrl: prdPreviewUrl,
-      prdDownloadUrl,
-      supportingDocuments: (item.supportingDocuments || []).map((document) => {
-        const documentDownloadName = buildDownloadFilename(document.name, document.format)
-        const storedDocumentUrl = isForcedDownloadUrl(document.url) ? '' : document.url || ''
-        const docResType = document.resourceType || 'raw'
-        const documentPreviewUrl = getCloudinaryPreviewUrl(document.publicId, docResType) || storedDocumentUrl || ''
-        const documentDownloadUrl =
-          getCloudinaryDownloadUrl(document.publicId, documentDownloadName, docResType) ||
-          document.downloadUrl ||
-          documentPreviewUrl
-
-        return {
-          ...document,
-          url: documentPreviewUrl,
-          downloadUrl: documentDownloadUrl,
-        }
-      }),
-    }
-  })
+  const normalizedItems = items.map((item) => normalizeProjectOrder(item)).filter(Boolean)
 
   await ProjectOrder.updateMany(
     { isUnreadForAdmin: true },
@@ -268,6 +267,24 @@ export const getProjectOrders = asyncHandler(async (_req, res) => {
   )
 
   res.json({ items: normalizedItems })
+})
+
+export const getProjectOrderById = asyncHandler(async (req, res) => {
+  const item = await ProjectOrder.findById(req.params.id)
+
+  if (!item) {
+    throw new ApiError(404, 'Order request not found')
+  }
+
+  if (item.isUnreadForAdmin) {
+    item.isUnreadForAdmin = false
+    item.lastViewedByAdminAt = new Date()
+    await item.save()
+  }
+
+  const normalizedItem = normalizeProjectOrder(item)
+
+  res.json({ item: normalizedItem })
 })
 
 export const updateProjectOrder = asyncHandler(async (req, res) => {
@@ -300,7 +317,7 @@ export const deleteProjectOrder = asyncHandler(async (req, res) => {
   // Delete files from Cloudinary
   if (item.prdPublicId) {
     try {
-      await cloudinary.uploader.destroy(item.prdPublicId, { resource_type: item.prdResourceType || 'raw' })
+      await cloudinary.uploader.destroy(item.prdPublicId, { resource_type: 'raw' })
     } catch (err) {
       console.error('[Cloudinary] PRD deletion failed:', err)
     }
@@ -310,7 +327,7 @@ export const deleteProjectOrder = asyncHandler(async (req, res) => {
     for (const doc of item.supportingDocuments) {
       if (doc.publicId) {
         try {
-          await cloudinary.uploader.destroy(doc.publicId, { resource_type: doc.resourceType || 'raw' })
+          await cloudinary.uploader.destroy(doc.publicId, { resource_type: 'raw' })
         } catch (err) {
           console.error(`[Cloudinary] Supporting doc ${doc.name} deletion failed:`, err)
         }
@@ -332,7 +349,7 @@ export const deleteProjectOrderPrd = asyncHandler(async (req, res) => {
 
   if (item.prdPublicId) {
     try {
-      await cloudinary.uploader.destroy(item.prdPublicId, { resource_type: item.prdResourceType || 'raw' })
+      await cloudinary.uploader.destroy(item.prdPublicId, { resource_type: 'raw' })
     } catch (err) {
       console.error('[Cloudinary] PRD deletion failed:', err)
     }
@@ -344,7 +361,6 @@ export const deleteProjectOrderPrd = asyncHandler(async (req, res) => {
   item.prdOriginalName = ''
   item.prdBytes = 0
   item.prdFormat = ''
-  item.prdResourceType = ''
 
   await item.save()
 
@@ -366,7 +382,7 @@ export const deleteProjectOrderSupportingDocument = asyncHandler(async (req, res
 
   if (document.publicId) {
     try {
-      await cloudinary.uploader.destroy(document.publicId, { resource_type: document.resourceType || 'raw' })
+      await cloudinary.uploader.destroy(document.publicId, { resource_type: 'raw' })
     } catch (err) {
       console.error(`[Cloudinary] Supporting doc ${document.name} deletion failed:`, err)
     }

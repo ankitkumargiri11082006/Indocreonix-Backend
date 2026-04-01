@@ -4,6 +4,7 @@ import {
 	deleteProjectOrder,
 	deleteProjectOrderPrd,
 	deleteProjectOrderSupportingDocument,
+	getProjectOrderById,
 	getProjectOrders,
 	updateProjectOrder,
 } from '../controllers/orderController.js'
@@ -14,6 +15,7 @@ const router = Router()
 
 router.post('/', uploadOrderDocuments, createProjectOrder)
 router.get('/', protect, permit('admin', 'editor'), requirePermission('orders'), getProjectOrders)
+router.get('/:id', protect, permit('admin', 'editor'), requirePermission('orders'), getProjectOrderById)
 router.patch('/:id', protect, permit('admin', 'editor'), requirePermission('orders'), updateProjectOrder)
 router.delete('/:id', protect, permit('admin', 'editor'), requirePermission('orders'), deleteProjectOrder)
 router.delete(

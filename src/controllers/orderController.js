@@ -40,13 +40,16 @@ function buildDownloadFilename(originalname = '', fallbackExtension = '') {
 function uploadFileToCloudinary(fileBuffer, originalname, folder) {
   return new Promise((resolve, reject) => {
     const safeBaseName = sanitizeFileBaseName(originalname)
+    const extension = extractFileExtension(originalname)
     const timestampedBase = `${safeBaseName}-${Date.now()}`
+    const publicId = extension ? `${timestampedBase}.${extension}` : timestampedBase
 
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder,
-        resource_type: 'auto',
-        public_id: timestampedBase,
+        resource_type: 'raw',
+        public_id: publicId,
+        access_control: [{ access_type: 'anonymous' }],
         use_filename: false,
         unique_filename: false,
         overwrite: false,
@@ -66,33 +69,45 @@ function isForcedDownloadUrl(url = '') {
   return /fl_attachment|response-content-disposition=attachment/i.test(url)
 }
 
-function getCloudinaryUrl(publicId, { resourceType = 'raw', format = '', downloadName = '', attachment = false } = {}) {
+function getCloudinaryPreviewUrl(publicId, resourceType = 'raw') {
   if (!publicId) return ''
-
-  const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 6 // 6 hours
-
-  const urlOptions = {
-    resource_type: resourceType,
-    type: 'upload',
-    secure: true,
-    sign_url: true,
-    expires_at: expiresAt,
+  const extension = extractFileExtension(publicId) || 'bin'
+  const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 6
+  try {
+    return cloudinary.utils.private_download_url(publicId, extension, {
+      resource_type: resourceType,
+      type: 'upload',
+      expires_at: expiresAt,
+      attachment: false,
+    })
+  } catch {
+    return cloudinary.url(publicId, {
+      resource_type: resourceType,
+      type: 'upload',
+      secure: true,
+    })
   }
+}
 
-  if (resourceType === 'image' && format === 'pdf' && !publicId.toLowerCase().endsWith('.pdf')) {
-    urlOptions.format = 'pdf'
+function getCloudinaryDownloadUrl(publicId, downloadName = '', resourceType = 'raw') {
+  if (!publicId) return ''
+  const extension = extractFileExtension(downloadName || publicId) || 'bin'
+  const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 6
+  try {
+    return cloudinary.utils.private_download_url(publicId, extension, {
+      resource_type: resourceType,
+      type: 'upload',
+      expires_at: expiresAt,
+      attachment: true,
+    })
+  } catch {
+    return cloudinary.url(publicId, {
+      resource_type: resourceType,
+      type: 'upload',
+      secure: true,
+      flags: 'attachment',
+    })
   }
-
-  if (attachment) {
-    urlOptions.flags = 'attachment'
-    if (downloadName) {
-      urlOptions.attachment = downloadName
-    }
-  } else if (resourceType === 'raw') {
-    urlOptions.flags = 'inline'
-  }
-
-  return cloudinary.url(publicId, urlOptions)
 }
 
 export const createProjectOrder = asyncHandler(async (req, res) => {
@@ -142,24 +157,16 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
       prdFile.originalname,
       'indocreonix/orders/prd'
     )
-    const prdResourceType = uploadedPrd.resource_type || 'raw'
-    const prdFormat = uploadedPrd.format || prdExtension
-    const prdPreviewUrl = getCloudinaryUrl(uploadedPrd.public_id, { resourceType: prdResourceType, format: prdFormat }) || uploadedPrd.secure_url
+    const prdPreviewUrl = uploadedPrd.secure_url || getCloudinaryPreviewUrl(uploadedPrd.public_id)
 
     prdMeta = {
       prdUrl: prdPreviewUrl,
-      prdDownloadUrl:
-        getCloudinaryUrl(uploadedPrd.public_id, {
-          resourceType: prdResourceType,
-          format: prdFormat,
-          downloadName,
-          attachment: true,
-        }) || prdPreviewUrl,
+      prdDownloadUrl: getCloudinaryDownloadUrl(uploadedPrd.public_id, downloadName) || prdPreviewUrl,
       prdPublicId: uploadedPrd.public_id,
       prdOriginalName: prdFile.originalname,
       prdBytes: prdFile.size,
-      prdFormat,
-      prdResourceType,
+      prdFormat: uploadedPrd.format || prdExtension,
+      prdResourceType: 'raw',
     }
   }
 
@@ -172,24 +179,16 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
       file.originalname,
       'indocreonix/orders/supporting-docs'
     )
-    const docResourceType = uploadedDocument.resource_type || 'raw'
-    const docFormat = uploadedDocument.format || extension
-    const documentPreviewUrl = getCloudinaryUrl(uploadedDocument.public_id, { resourceType: docResourceType, format: docFormat }) || uploadedDocument.secure_url
+    const documentPreviewUrl = uploadedDocument.secure_url || getCloudinaryPreviewUrl(uploadedDocument.public_id)
 
     supportingDocuments.push({
       name: file.originalname,
       url: documentPreviewUrl,
-      downloadUrl:
-        getCloudinaryUrl(uploadedDocument.public_id, {
-          resourceType: docResourceType,
-          format: docFormat,
-          downloadName,
-          attachment: true,
-        }) || documentPreviewUrl,
+      downloadUrl: getCloudinaryDownloadUrl(uploadedDocument.public_id, downloadName) || documentPreviewUrl,
       publicId: uploadedDocument.public_id,
       bytes: file.size,
-      format: docFormat,
-      resourceType: docResourceType,
+      format: uploadedDocument.format || extension,
+      resourceType: 'raw',
     })
   }
 
@@ -228,45 +227,31 @@ export const getProjectOrders = asyncHandler(async (_req, res) => {
   const normalizedItems = items.map((item) => {
     const prdDownloadName = buildDownloadFilename(item.prdOriginalName, item.prdFormat)
     const storedPrdUrl = isForcedDownloadUrl(item.prdUrl) ? '' : item.prdUrl || ''
-    const storedPrdDownloadUrl = item.prdDownloadUrl || ''
-    const prdResourceType = item.prdResourceType || 'raw'
-    const prdPreviewUrl = getCloudinaryUrl(item.prdPublicId, { resourceType: prdResourceType, format: item.prdFormat }) || storedPrdUrl || ''
+    const prdResType = item.prdResourceType || 'raw'
+    const prdPreviewUrl = getCloudinaryPreviewUrl(item.prdPublicId, prdResType) || storedPrdUrl || ''
     const prdDownloadUrl =
-      getCloudinaryUrl(item.prdPublicId, {
-        resourceType: prdResourceType,
-        format: item.prdFormat,
-        downloadName: prdDownloadName,
-        attachment: true,
-      }) ||
-      storedPrdDownloadUrl ||
+      getCloudinaryDownloadUrl(item.prdPublicId, prdDownloadName, prdResType) ||
+      item.prdDownloadUrl ||
       prdPreviewUrl
 
     return {
       ...item,
       prdUrl: prdPreviewUrl,
       prdDownloadUrl,
-      prdResourceType,
       supportingDocuments: (item.supportingDocuments || []).map((document) => {
         const documentDownloadName = buildDownloadFilename(document.name, document.format)
         const storedDocumentUrl = isForcedDownloadUrl(document.url) ? '' : document.url || ''
-        const storedDocumentDownloadUrl = document.downloadUrl || ''
-        const docResourceType = document.resourceType || 'raw'
-        const documentPreviewUrl = getCloudinaryUrl(document.publicId, { resourceType: docResourceType, format: document.format }) || storedDocumentUrl || ''
+        const docResType = document.resourceType || 'raw'
+        const documentPreviewUrl = getCloudinaryPreviewUrl(document.publicId, docResType) || storedDocumentUrl || ''
         const documentDownloadUrl =
-          getCloudinaryUrl(document.publicId, {
-            resourceType: docResourceType,
-            format: document.format,
-            downloadName: documentDownloadName,
-            attachment: true,
-          }) ||
-          storedDocumentDownloadUrl ||
+          getCloudinaryDownloadUrl(document.publicId, documentDownloadName, docResType) ||
+          document.downloadUrl ||
           documentPreviewUrl
 
         return {
           ...document,
           url: documentPreviewUrl,
           downloadUrl: documentDownloadUrl,
-          resourceType: docResourceType,
         }
       }),
     }

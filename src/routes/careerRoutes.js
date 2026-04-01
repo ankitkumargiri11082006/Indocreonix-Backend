@@ -11,6 +11,7 @@ import {
   updateApplicationStatus,
   requestOnboardingDocs,
   submitOnboardingDocs,
+  deleteOnboardingDocs,
   deleteApplication,
 } from '../controllers/careerController.js'
 import { permit, protect, requirePermission } from '../middlewares/auth.js'
@@ -25,11 +26,18 @@ router.put('/opportunities/:id', protect, permit('admin', 'editor'), requirePerm
 router.delete('/opportunities/:id', protect, permit('admin'), requirePermission('openings'), deleteOpportunity)
 
 router.post('/applications', uploadCvPdf.single('cv'), submitApplication)
+router.post('/applications/:id/submit-onboarding-docs', uploadOnboardingDocs, submitOnboardingDocs)
 router.get('/applications', protect, permit('admin', 'editor'), requirePermission('applications'), getApplications)
 router.get('/applications/export.csv', protect, permit('admin', 'editor'), requirePermission('applications'), exportApplicationsCsv)
 router.patch('/applications/:id', protect, permit('admin', 'editor'), requirePermission('applications'), updateApplicationStatus)
 router.post('/applications/:id/request-onboarding-docs', protect, permit('admin', 'editor'), requirePermission('applications'), requestOnboardingDocs)
-router.post('/applications/:id/submit-onboarding-docs', uploadOnboardingDocs, submitOnboardingDocs)
+router.delete(
+  '/applications/:id/onboarding-docs',
+  protect,
+  permit('admin', 'editor'),
+  requirePermission('applications'),
+  deleteOnboardingDocs
+)
 router.delete('/applications/:id', protect, permit('admin'), requirePermission('applications'), deleteApplication)
 
 export default router

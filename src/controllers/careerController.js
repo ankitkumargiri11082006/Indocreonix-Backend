@@ -145,26 +145,36 @@ async function destroyCvAsset(publicId, preferredResourceType = 'image') {
   }
 }
 
-function uploadPdfToCloudinary(fileBuffer, originalname) {
+function uploadPdfToCloudinary(fileBuffer, originalname, options = {}) {
   return new Promise((resolve, reject) => {
     const safeBaseName = sanitizeCvFileBaseName(originalname)
+    const {
+      folder = 'indocreonix/cv',
+      publicIdPrefix = 'cv',
+      resourceType = 'image',
+      accessControl = [{ access_type: 'anonymous' }],
+      extraUploadOptions = {},
+    } = options
 
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder: 'indocreonix/cv',
-        resource_type: 'image',
-        format: 'pdf',
-        access_control: [{ access_type: 'anonymous' }],
-        public_id: `cv-${Date.now()}-${safeBaseName}`,
-        use_filename: false,
-        unique_filename: false,
-        overwrite: false,
-      },
-      (error, result) => {
-        if (error) return reject(error)
-        return resolve(result)
-      }
-    )
+    const uploadOptions = {
+      folder,
+      resource_type: resourceType,
+      access_control: accessControl,
+      public_id: `${publicIdPrefix}-${Date.now()}-${safeBaseName}`,
+      use_filename: false,
+      unique_filename: false,
+      overwrite: false,
+      ...extraUploadOptions,
+    }
+
+    if (resourceType === 'image') {
+      uploadOptions.format = 'pdf'
+    }
+
+    const uploadStream = cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
+      if (error) return reject(error)
+      return resolve(result)
+    })
 
     uploadStream.end(fileBuffer)
   })
@@ -325,6 +335,15 @@ export const getApplications = asyncHandler(async (req, res) => {
           : '') ||
         item.cvUrl ||
         '',
+      onboardingDocsUrl:
+        (item.onboardingDocsPublicId
+          ? await resolveCloudinaryCvDelivery(
+              item.onboardingDocsPublicId,
+              item.onboardingDocsResourceType || 'raw'
+            )
+          : '') ||
+        item.onboardingDocsUrl ||
+        '',
     }))
   )
 
@@ -436,7 +455,8 @@ export const requestOnboardingDocs = asyncHandler(async (req, res) => {
   const item = await CareerApplication.findById(req.params.id).populate('opportunity', 'title')
   if (!item) throw new ApiError(404, 'Application not found')
 
-  const actionUrl = `${process.env.FRONTEND_URL || 'https://indocreonix.com'}/career/onboarding-documents?token=${item._id}`
+  const baseUrl = process.env.FRONTEND_URL || 'https://indocreonix.com'
+  const actionUrl = `${baseUrl}/career/onboarding-documents?token=${encodeURIComponent(String(item._id))}`
 
   await sendOnboardingDocsRequestEmail(item.email, {
     fullName: item.fullName,
@@ -456,58 +476,69 @@ export const requestOnboardingDocs = asyncHandler(async (req, res) => {
 })
 
 export const submitOnboardingDocs = asyncHandler(async (req, res) => {
-  const item = await CareerApplication.findById(req.params.id)
-  if (!item) throw new ApiError(404, 'Application not found')
-
-  const file = req.file
-  if (!file) {
-    throw new ApiError(400, 'No PDF uploaded. Please attach your onboarding documents PDF.')
+  if (!req.file) {
+    throw new ApiError(400, 'Please upload a single PDF document')
   }
 
-  // Upload to Cloudinary exactly like CV — resource_type:'image', format:'pdf', anonymous access
-  const safeBaseName = file.originalname
-    .toLowerCase()
-    .replace(/\.pdf$/i, '')
-    .replace(/[^a-z0-9\-_]/g, '-')
-    .replace(/-+/g, '-')
-    .slice(0, 60)
+  const application = await CareerApplication.findById(req.params.id)
+  if (!application) {
+    throw new ApiError(404, 'Application not found or link expired')
+  }
 
-  const uploadResult = await new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: 'indocreonix/onboarding-docs',
-        resource_type: 'image',
-        format: 'pdf',
-        public_id: `docs-${item._id}-${Date.now()}-${safeBaseName}`,
-        use_filename: false,
-        unique_filename: false,
-        overwrite: false,
-        access_control: [{ access_type: 'anonymous' }],
-      },
-      (error, result) => {
-        if (error) return reject(error)
-        return resolve(result)
-      }
-    )
-    stream.end(file.buffer)
+  const uploaded = await uploadPdfToCloudinary(req.file.buffer, req.file.originalname, {
+    folder: 'indocreonix/onboarding-docs',
+    publicIdPrefix: 'onboarding',
+    resourceType: 'raw',
   })
 
-  item.onboardingDocsUrl = uploadResult.secure_url || uploadResult.url
-  item.onboardingDocsPublicId = uploadResult.public_id
-  item.onboardingDocsResourceType = 'image'
-  item.onboardingDocsSubmittedAt = new Date()
-  await item.save()
+  if (application.onboardingDocsPublicId) {
+    await destroyCvAsset(application.onboardingDocsPublicId, application.onboardingDocsResourceType || 'raw')
+  }
 
-  await createAuditLog(req, 'SUBMIT_ONBOARDING_DOCS', 'CareerApplication', item._id, {
-    url: item.onboardingDocsUrl,
+  const resolvedUrl =
+    uploaded.secure_url ||
+    getCloudinaryCvUrl(uploaded.public_id, uploaded.resource_type || 'raw') ||
+    ''
+
+  application.onboardingDocsUrl = resolvedUrl
+  application.onboardingDocsPublicId = uploaded.public_id
+  application.onboardingDocsResourceType = uploaded.resource_type || 'raw'
+  application.onboardingDocsSubmittedAt = new Date()
+  application.isUnreadForAdmin = true
+
+  await application.save()
+
+  await createAuditLog(req, 'SUBMIT_ONBOARDING_DOCUMENTS', 'CareerApplication', application._id, {
+    hasDocument: true,
   })
 
-  res.json({ message: 'Onboarding documents submitted successfully' })
+  res.json({ message: 'Onboarding document uploaded successfully' })
 })
 
+export const deleteOnboardingDocs = asyncHandler(async (req, res) => {
+  const application = await CareerApplication.findById(req.params.id)
+  if (!application) {
+    throw new ApiError(404, 'Application not found')
+  }
 
+  const hadDocument = Boolean(application.onboardingDocsPublicId)
 
+  if (hadDocument) {
+    await destroyCvAsset(application.onboardingDocsPublicId, application.onboardingDocsResourceType || 'raw')
+  }
 
+  application.onboardingDocsUrl = ''
+  application.onboardingDocsPublicId = ''
+  application.onboardingDocsResourceType = 'raw'
+  application.onboardingDocsSubmittedAt = null
+  await application.save()
+
+  await createAuditLog(req, 'DELETE_ONBOARDING_DOCUMENTS', 'CareerApplication', application._id, {
+    removedFromCloudinary: hadDocument,
+  })
+
+  res.json({ message: 'Onboarding document deleted' })
+})
 
 export const deleteApplication = asyncHandler(async (req, res) => {
   const item = await CareerApplication.findById(req.params.id)
@@ -518,11 +549,16 @@ export const deleteApplication = asyncHandler(async (req, res) => {
     await destroyCvAsset(item.cvPublicId, item.cvResourceType || 'raw')
   }
 
+  if (item.onboardingDocsPublicId) {
+    await destroyCvAsset(item.onboardingDocsPublicId, item.onboardingDocsResourceType || 'raw')
+  }
+
   await item.deleteOne()
 
   await createAuditLog(req, 'DELETE_CAREER_APPLICATION', 'CareerApplication', req.params.id, {
     roleType: item.roleType,
     hadCv: Boolean(item.cvPublicId),
+    hadOnboardingDocs: Boolean(item.onboardingDocsPublicId),
   })
 
   res.json({ message: 'Application deleted' })

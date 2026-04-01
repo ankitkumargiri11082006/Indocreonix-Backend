@@ -21,6 +21,7 @@ const projectOrderSchema = new mongoose.Schema(
     projectSummary: { type: String, required: true, trim: true },
     featureRequirements: { type: String, default: '', trim: true },
     prdUrl: { type: String, default: '' },
+    prdDownloadUrl: { type: String, default: '' },
     prdPublicId: { type: String, default: '' },
     prdOriginalName: { type: String, default: '' },
     prdBytes: { type: Number, default: 0 },
@@ -30,6 +31,7 @@ const projectOrderSchema = new mongoose.Schema(
         {
           name: { type: String, default: '' },
           url: { type: String, default: '' },
+          downloadUrl: { type: String, default: '' },
           publicId: { type: String, default: '' },
           bytes: { type: Number, default: 0 },
           format: { type: String, default: '' },

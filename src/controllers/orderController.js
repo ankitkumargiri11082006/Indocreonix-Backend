@@ -60,7 +60,7 @@ function uploadRawFileToCloudinary(fileBuffer, originalname, folder) {
   })
 }
 
-function getCloudinaryRawUrl(publicId, downloadName = '') {
+function getCloudinaryRawUrl(publicId, { downloadName = '', attachment = false } = {}) {
   if (!publicId) return ''
 
   const urlOptions = {
@@ -69,9 +69,11 @@ function getCloudinaryRawUrl(publicId, downloadName = '') {
     secure: true,
   }
 
-  if (downloadName) {
+  if (attachment) {
     urlOptions.flags = 'attachment'
-    urlOptions.attachment = downloadName
+    if (downloadName) {
+      urlOptions.attachment = downloadName
+    }
   }
 
   return cloudinary.url(publicId, urlOptions)
@@ -122,9 +124,15 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
       prdFile.originalname,
       'indocreonix/orders/prd'
     )
+    const prdPreviewUrl = getCloudinaryRawUrl(uploadedPrd.public_id) || uploadedPrd.secure_url
 
     prdMeta = {
-      prdUrl: getCloudinaryRawUrl(uploadedPrd.public_id, downloadName) || uploadedPrd.secure_url,
+      prdUrl: prdPreviewUrl,
+      prdDownloadUrl:
+        getCloudinaryRawUrl(uploadedPrd.public_id, {
+          downloadName,
+          attachment: true,
+        }) || prdPreviewUrl,
       prdPublicId: uploadedPrd.public_id,
       prdOriginalName: prdFile.originalname,
       prdBytes: prdFile.size,
@@ -141,10 +149,16 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
       file.originalname,
       'indocreonix/orders/supporting-docs'
     )
+    const documentPreviewUrl = getCloudinaryRawUrl(uploadedDocument.public_id) || uploadedDocument.secure_url
 
     supportingDocuments.push({
       name: file.originalname,
-      url: getCloudinaryRawUrl(uploadedDocument.public_id, downloadName) || uploadedDocument.secure_url,
+      url: documentPreviewUrl,
+      downloadUrl:
+        getCloudinaryRawUrl(uploadedDocument.public_id, {
+          downloadName,
+          attachment: true,
+        }) || documentPreviewUrl,
       publicId: uploadedDocument.public_id,
       bytes: file.size,
       format: uploadedDocument.format || extension,
@@ -183,22 +197,36 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
 export const getProjectOrders = asyncHandler(async (_req, res) => {
   const items = await ProjectOrder.find().sort({ createdAt: -1 }).lean()
 
-  const normalizedItems = items.map((item) => ({
-    ...item,
-    prdUrl:
-      getCloudinaryRawUrl(
-        item.prdPublicId,
-        buildDownloadFilename(item.prdOriginalName, item.prdFormat)
-      ) || item.prdUrl || '',
-    supportingDocuments: (item.supportingDocuments || []).map((document) => ({
-      ...document,
-      url:
-        getCloudinaryRawUrl(
-          document.publicId,
-          buildDownloadFilename(document.name, document.format)
-        ) || document.url || '',
-    })),
-  }))
+  const normalizedItems = items.map((item) => {
+    const prdDownloadName = buildDownloadFilename(item.prdOriginalName, item.prdFormat)
+    const prdPreviewUrl = getCloudinaryRawUrl(item.prdPublicId) || item.prdUrl || ''
+    const prdDownloadUrl =
+      getCloudinaryRawUrl(item.prdPublicId, {
+        downloadName: prdDownloadName,
+        attachment: true,
+      }) || item.prdDownloadUrl || prdPreviewUrl
+
+    return {
+      ...item,
+      prdUrl: prdPreviewUrl,
+      prdDownloadUrl,
+      supportingDocuments: (item.supportingDocuments || []).map((document) => {
+        const documentDownloadName = buildDownloadFilename(document.name, document.format)
+        const documentPreviewUrl = getCloudinaryRawUrl(document.publicId) || document.url || ''
+        const documentDownloadUrl =
+          getCloudinaryRawUrl(document.publicId, {
+            downloadName: documentDownloadName,
+            attachment: true,
+          }) || document.downloadUrl || documentPreviewUrl
+
+        return {
+          ...document,
+          url: documentPreviewUrl,
+          downloadUrl: documentDownloadUrl,
+        }
+      }),
+    }
+  })
 
   await ProjectOrder.updateMany(
     { isUnreadForAdmin: true },

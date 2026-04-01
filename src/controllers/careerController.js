@@ -488,7 +488,7 @@ export const submitOnboardingDocs = asyncHandler(async (req, res) => {
   const uploaded = await uploadPdfToCloudinary(req.file.buffer, req.file.originalname, {
     folder: 'indocreonix/onboarding-docs',
     publicIdPrefix: 'onboarding',
-    resourceType: 'raw',
+    resourceType: 'image',
   })
 
   if (application.onboardingDocsPublicId) {
@@ -502,8 +502,10 @@ export const submitOnboardingDocs = asyncHandler(async (req, res) => {
 
   application.onboardingDocsUrl = resolvedUrl
   application.onboardingDocsPublicId = uploaded.public_id
-  application.onboardingDocsResourceType = uploaded.resource_type || 'raw'
+  application.onboardingDocsResourceType = uploaded.resource_type || 'image'
   application.onboardingDocsSubmittedAt = new Date()
+  application.onboardingDocsOriginalName = req.file.originalname || ''
+  application.onboardingDocsBytes = req.file.size || 0
   application.isUnreadForAdmin = true
 
   await application.save()
@@ -529,8 +531,10 @@ export const deleteOnboardingDocs = asyncHandler(async (req, res) => {
 
   application.onboardingDocsUrl = ''
   application.onboardingDocsPublicId = ''
-  application.onboardingDocsResourceType = 'raw'
+  application.onboardingDocsResourceType = 'image'
   application.onboardingDocsSubmittedAt = null
+  application.onboardingDocsOriginalName = ''
+  application.onboardingDocsBytes = 0
   await application.save()
 
   await createAuditLog(req, 'DELETE_ONBOARDING_DOCUMENTS', 'CareerApplication', application._id, {

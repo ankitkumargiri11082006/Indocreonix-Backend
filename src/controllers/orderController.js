@@ -69,13 +69,17 @@ function isForcedDownloadUrl(url = '') {
 function getCloudinaryUrl(publicId, { resourceType = 'raw', format = '', downloadName = '', attachment = false } = {}) {
   if (!publicId) return ''
 
+  const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 6 // 6 hours
+
   const urlOptions = {
     resource_type: resourceType,
     type: 'upload',
     secure: true,
+    sign_url: true,
+    expires_at: expiresAt,
   }
 
-  if (resourceType === 'image' && format === 'pdf') {
+  if (resourceType === 'image' && format === 'pdf' && !publicId.toLowerCase().endsWith('.pdf')) {
     urlOptions.format = 'pdf'
   }
 
@@ -226,15 +230,15 @@ export const getProjectOrders = asyncHandler(async (_req, res) => {
     const storedPrdUrl = isForcedDownloadUrl(item.prdUrl) ? '' : item.prdUrl || ''
     const storedPrdDownloadUrl = item.prdDownloadUrl || ''
     const prdResourceType = item.prdResourceType || 'raw'
-    const prdPreviewUrl = storedPrdUrl || getCloudinaryUrl(item.prdPublicId, { resourceType: prdResourceType, format: item.prdFormat }) || ''
+    const prdPreviewUrl = getCloudinaryUrl(item.prdPublicId, { resourceType: prdResourceType, format: item.prdFormat }) || storedPrdUrl || ''
     const prdDownloadUrl =
-      storedPrdDownloadUrl ||
       getCloudinaryUrl(item.prdPublicId, {
         resourceType: prdResourceType,
         format: item.prdFormat,
         downloadName: prdDownloadName,
         attachment: true,
       }) ||
+      storedPrdDownloadUrl ||
       prdPreviewUrl
 
     return {
@@ -247,15 +251,15 @@ export const getProjectOrders = asyncHandler(async (_req, res) => {
         const storedDocumentUrl = isForcedDownloadUrl(document.url) ? '' : document.url || ''
         const storedDocumentDownloadUrl = document.downloadUrl || ''
         const docResourceType = document.resourceType || 'raw'
-        const documentPreviewUrl = storedDocumentUrl || getCloudinaryUrl(document.publicId, { resourceType: docResourceType, format: document.format }) || ''
+        const documentPreviewUrl = getCloudinaryUrl(document.publicId, { resourceType: docResourceType, format: document.format }) || storedDocumentUrl || ''
         const documentDownloadUrl =
-          storedDocumentDownloadUrl ||
           getCloudinaryUrl(document.publicId, {
             resourceType: docResourceType,
             format: document.format,
             downloadName: documentDownloadName,
             attachment: true,
           }) ||
+          storedDocumentDownloadUrl ||
           documentPreviewUrl
 
         return {

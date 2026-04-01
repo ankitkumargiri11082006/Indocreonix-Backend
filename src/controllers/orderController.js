@@ -15,6 +15,28 @@ function sanitizeFileBaseName(originalname = '') {
   return sanitized || 'document'
 }
 
+function extractFileExtension(originalname = '') {
+  const lowered = originalname.toLowerCase()
+  const match = /\.([a-z0-9]+)$/.exec(lowered)
+  return match ? match[1] : ''
+}
+
+function buildDownloadFilename(originalname = '', fallbackExtension = '') {
+  const normalizedExtension = (fallbackExtension || '').replace(/^\./, '')
+  const safeBase = (originalname || '').trim() || 'document'
+  const sanitized = safeBase.replace(/[^a-z0-9._-]+/gi, '_')
+
+  if (!normalizedExtension) {
+    return sanitized
+  }
+
+  if (sanitized.toLowerCase().endsWith(`.${normalizedExtension}`)) {
+    return sanitized
+  }
+
+  return `${sanitized}.${normalizedExtension}`
+}
+
 function uploadRawFileToCloudinary(fileBuffer, originalname, folder) {
   return new Promise((resolve, reject) => {
     const safeBaseName = sanitizeFileBaseName(originalname)
@@ -38,15 +60,23 @@ function uploadRawFileToCloudinary(fileBuffer, originalname, folder) {
   })
 }
 
-function getCloudinaryRawUrl(publicId, format = '') {
+function getCloudinaryRawUrl(publicId, format = '', downloadName = '') {
   if (!publicId) return ''
 
-  return cloudinary.url(publicId, {
+  const urlOptions = {
     resource_type: 'raw',
     type: 'upload',
     secure: true,
     ...(format ? { format } : {}),
-  })
+  }
+
+  if (downloadName) {
+    urlOptions.attachment = downloadName
+  } else {
+    urlOptions.flags = 'attachment'
+  }
+
+  return cloudinary.url(publicId, urlOptions)
 }
 
 export const createProjectOrder = asyncHandler(async (req, res) => {
@@ -87,6 +117,8 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
   }
 
   if (prdFile) {
+    const prdExtension = extractFileExtension(prdFile.originalname) || 'pdf'
+    const downloadName = buildDownloadFilename(prdFile.originalname, prdExtension)
     const uploadedPrd = await uploadRawFileToCloudinary(
       prdFile.buffer,
       prdFile.originalname,
@@ -94,16 +126,23 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
     )
 
     prdMeta = {
-      prdUrl: getCloudinaryRawUrl(uploadedPrd.public_id, uploadedPrd.format) || uploadedPrd.secure_url,
+      prdUrl:
+        getCloudinaryRawUrl(
+          uploadedPrd.public_id,
+          uploadedPrd.format || prdExtension,
+          downloadName
+        ) || uploadedPrd.secure_url,
       prdPublicId: uploadedPrd.public_id,
       prdOriginalName: prdFile.originalname,
       prdBytes: prdFile.size,
-      prdFormat: uploadedPrd.format || '',
+      prdFormat: uploadedPrd.format || prdExtension,
     }
   }
 
   const supportingDocuments = []
   for (const file of supportingFiles) {
+    const extension = extractFileExtension(file.originalname)
+    const downloadName = buildDownloadFilename(file.originalname, extension)
     const uploadedDocument = await uploadRawFileToCloudinary(
       file.buffer,
       file.originalname,
@@ -112,10 +151,15 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
 
     supportingDocuments.push({
       name: file.originalname,
-      url: getCloudinaryRawUrl(uploadedDocument.public_id, uploadedDocument.format) || uploadedDocument.secure_url,
+      url:
+        getCloudinaryRawUrl(
+          uploadedDocument.public_id,
+          uploadedDocument.format || extension,
+          downloadName
+        ) || uploadedDocument.secure_url,
       publicId: uploadedDocument.public_id,
       bytes: file.size,
-      format: uploadedDocument.format || '',
+      format: uploadedDocument.format || extension,
     })
   }
 
@@ -153,10 +197,20 @@ export const getProjectOrders = asyncHandler(async (_req, res) => {
 
   const normalizedItems = items.map((item) => ({
     ...item,
-    prdUrl: getCloudinaryRawUrl(item.prdPublicId, item.prdFormat) || item.prdUrl || '',
+    prdUrl:
+      getCloudinaryRawUrl(
+        item.prdPublicId,
+        item.prdFormat,
+        buildDownloadFilename(item.prdOriginalName, item.prdFormat)
+      ) || item.prdUrl || '',
     supportingDocuments: (item.supportingDocuments || []).map((document) => ({
       ...document,
-      url: getCloudinaryRawUrl(document.publicId, document.format) || document.url || '',
+      url:
+        getCloudinaryRawUrl(
+          document.publicId,
+          document.format,
+          buildDownloadFilename(document.name, document.format)
+        ) || document.url || '',
     })),
   }))
 

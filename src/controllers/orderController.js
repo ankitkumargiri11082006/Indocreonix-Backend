@@ -60,6 +60,11 @@ function uploadRawFileToCloudinary(fileBuffer, originalname, folder) {
   })
 }
 
+function isForcedDownloadUrl(url = '') {
+  if (!url) return false
+  return /fl_attachment|response-content-disposition=attachment/i.test(url)
+}
+
 function getCloudinaryRawUrl(publicId, { downloadName = '', attachment = false } = {}) {
   if (!publicId) return ''
 
@@ -74,6 +79,8 @@ function getCloudinaryRawUrl(publicId, { downloadName = '', attachment = false }
     if (downloadName) {
       urlOptions.attachment = downloadName
     }
+  } else {
+    urlOptions.flags = 'inline'
   }
 
   return cloudinary.url(publicId, urlOptions)
@@ -110,6 +117,7 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
 
   let prdMeta = {
     prdUrl: '',
+    prdDownloadUrl: '',
     prdPublicId: '',
     prdOriginalName: '',
     prdBytes: 0,
@@ -199,12 +207,16 @@ export const getProjectOrders = asyncHandler(async (_req, res) => {
 
   const normalizedItems = items.map((item) => {
     const prdDownloadName = buildDownloadFilename(item.prdOriginalName, item.prdFormat)
-    const prdPreviewUrl = getCloudinaryRawUrl(item.prdPublicId) || item.prdUrl || ''
+    const storedPrdUrl = isForcedDownloadUrl(item.prdUrl) ? '' : item.prdUrl || ''
+    const storedPrdDownloadUrl = item.prdDownloadUrl || ''
+    const prdPreviewUrl = storedPrdUrl || getCloudinaryRawUrl(item.prdPublicId) || ''
     const prdDownloadUrl =
+      storedPrdDownloadUrl ||
       getCloudinaryRawUrl(item.prdPublicId, {
         downloadName: prdDownloadName,
         attachment: true,
-      }) || item.prdDownloadUrl || prdPreviewUrl
+      }) ||
+      prdPreviewUrl
 
     return {
       ...item,
@@ -212,12 +224,16 @@ export const getProjectOrders = asyncHandler(async (_req, res) => {
       prdDownloadUrl,
       supportingDocuments: (item.supportingDocuments || []).map((document) => {
         const documentDownloadName = buildDownloadFilename(document.name, document.format)
-        const documentPreviewUrl = getCloudinaryRawUrl(document.publicId) || document.url || ''
+        const storedDocumentUrl = isForcedDownloadUrl(document.url) ? '' : document.url || ''
+        const storedDocumentDownloadUrl = document.downloadUrl || ''
+        const documentPreviewUrl = storedDocumentUrl || getCloudinaryRawUrl(document.publicId) || ''
         const documentDownloadUrl =
+          storedDocumentDownloadUrl ||
           getCloudinaryRawUrl(document.publicId, {
             downloadName: documentDownloadName,
             attachment: true,
-          }) || document.downloadUrl || documentPreviewUrl
+          }) ||
+          documentPreviewUrl
 
         return {
           ...document,
@@ -310,6 +326,7 @@ export const deleteProjectOrderPrd = asyncHandler(async (req, res) => {
   }
 
   item.prdUrl = ''
+  item.prdDownloadUrl = ''
   item.prdPublicId = ''
   item.prdOriginalName = ''
   item.prdBytes = 0

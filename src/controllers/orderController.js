@@ -38,13 +38,14 @@ function uploadRawFileToCloudinary(fileBuffer, originalname, folder) {
   })
 }
 
-function getCloudinaryRawUrl(publicId) {
+function getCloudinaryRawUrl(publicId, format = '') {
   if (!publicId) return ''
 
   return cloudinary.url(publicId, {
     resource_type: 'raw',
     type: 'upload',
     secure: true,
+    ...(format ? { format } : {}),
   })
 }
 
@@ -82,6 +83,7 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
     prdPublicId: '',
     prdOriginalName: '',
     prdBytes: 0,
+    prdFormat: '',
   }
 
   if (prdFile) {
@@ -92,10 +94,11 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
     )
 
     prdMeta = {
-      prdUrl: getCloudinaryRawUrl(uploadedPrd.public_id) || uploadedPrd.secure_url,
+      prdUrl: getCloudinaryRawUrl(uploadedPrd.public_id, uploadedPrd.format) || uploadedPrd.secure_url,
       prdPublicId: uploadedPrd.public_id,
       prdOriginalName: prdFile.originalname,
       prdBytes: prdFile.size,
+      prdFormat: uploadedPrd.format || '',
     }
   }
 
@@ -109,9 +112,10 @@ export const createProjectOrder = asyncHandler(async (req, res) => {
 
     supportingDocuments.push({
       name: file.originalname,
-      url: getCloudinaryRawUrl(uploadedDocument.public_id) || uploadedDocument.secure_url,
+      url: getCloudinaryRawUrl(uploadedDocument.public_id, uploadedDocument.format) || uploadedDocument.secure_url,
       publicId: uploadedDocument.public_id,
       bytes: file.size,
+      format: uploadedDocument.format || '',
     })
   }
 
@@ -149,10 +153,10 @@ export const getProjectOrders = asyncHandler(async (_req, res) => {
 
   const normalizedItems = items.map((item) => ({
     ...item,
-    prdUrl: getCloudinaryRawUrl(item.prdPublicId) || item.prdUrl || '',
+    prdUrl: getCloudinaryRawUrl(item.prdPublicId, item.prdFormat) || item.prdUrl || '',
     supportingDocuments: (item.supportingDocuments || []).map((document) => ({
       ...document,
-      url: getCloudinaryRawUrl(document.publicId) || document.url || '',
+      url: getCloudinaryRawUrl(document.publicId, document.format) || document.url || '',
     })),
   }))
 
@@ -189,35 +193,88 @@ export const updateProjectOrder = asyncHandler(async (req, res) => {
    res.json({ message: 'Order request updated', item })
  })
  
- export const deleteProjectOrder = asyncHandler(async (req, res) => {
-   const item = await ProjectOrder.findById(req.params.id)
- 
-   if (!item) {
-     throw new ApiError(404, 'Order request not found')
-   }
- 
-   // Delete files from Cloudinary
-   if (item.prdPublicId) {
-     try {
-       await cloudinary.uploader.destroy(item.prdPublicId, { resource_type: 'raw' })
-     } catch (err) {
-       console.error('[Cloudinary] PRD deletion failed:', err)
-     }
-   }
- 
-   if (item.supportingDocuments?.length) {
-     for (const doc of item.supportingDocuments) {
-       if (doc.publicId) {
-         try {
-           await cloudinary.uploader.destroy(doc.publicId, { resource_type: 'raw' })
-         } catch (err) {
-           console.error(`[Cloudinary] Supporting doc ${doc.name} deletion failed:`, err)
-         }
-       }
-     }
-   }
- 
-   await item.deleteOne()
- 
-   res.json({ message: 'Order request deleted' })
- })
+export const deleteProjectOrder = asyncHandler(async (req, res) => {
+  const item = await ProjectOrder.findById(req.params.id)
+
+  if (!item) {
+    throw new ApiError(404, 'Order request not found')
+  }
+
+  // Delete files from Cloudinary
+  if (item.prdPublicId) {
+    try {
+      await cloudinary.uploader.destroy(item.prdPublicId, { resource_type: 'raw' })
+    } catch (err) {
+      console.error('[Cloudinary] PRD deletion failed:', err)
+    }
+  }
+
+  if (item.supportingDocuments?.length) {
+    for (const doc of item.supportingDocuments) {
+      if (doc.publicId) {
+        try {
+          await cloudinary.uploader.destroy(doc.publicId, { resource_type: 'raw' })
+        } catch (err) {
+          console.error(`[Cloudinary] Supporting doc ${doc.name} deletion failed:`, err)
+        }
+      }
+    }
+  }
+
+  await item.deleteOne()
+
+  res.json({ message: 'Order request deleted' })
+})
+
+export const deleteProjectOrderPrd = asyncHandler(async (req, res) => {
+  const item = await ProjectOrder.findById(req.params.id)
+
+  if (!item) {
+    throw new ApiError(404, 'Order request not found')
+  }
+
+  if (item.prdPublicId) {
+    try {
+      await cloudinary.uploader.destroy(item.prdPublicId, { resource_type: 'raw' })
+    } catch (err) {
+      console.error('[Cloudinary] PRD deletion failed:', err)
+    }
+  }
+
+  item.prdUrl = ''
+  item.prdPublicId = ''
+  item.prdOriginalName = ''
+  item.prdBytes = 0
+  item.prdFormat = ''
+
+  await item.save()
+
+  res.json({ message: 'PRD deleted' })
+})
+
+export const deleteProjectOrderSupportingDocument = asyncHandler(async (req, res) => {
+  const item = await ProjectOrder.findById(req.params.id)
+
+  if (!item) {
+    throw new ApiError(404, 'Order request not found')
+  }
+
+  const document = item.supportingDocuments.id(req.params.documentId)
+
+  if (!document) {
+    throw new ApiError(404, 'Supporting document not found')
+  }
+
+  if (document.publicId) {
+    try {
+      await cloudinary.uploader.destroy(document.publicId, { resource_type: 'raw' })
+    } catch (err) {
+      console.error(`[Cloudinary] Supporting doc ${document.name} deletion failed:`, err)
+    }
+  }
+
+  document.deleteOne()
+  await item.save()
+
+  res.json({ message: 'Supporting document deleted' })
+})

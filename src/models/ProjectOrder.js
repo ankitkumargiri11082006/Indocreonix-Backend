@@ -24,6 +24,7 @@ const projectOrderSchema = new mongoose.Schema(
     prdPublicId: { type: String, default: '' },
     prdOriginalName: { type: String, default: '' },
     prdBytes: { type: Number, default: 0 },
+    prdFormat: { type: String, default: '' },
     supportingDocuments: {
       type: [
         {
@@ -31,6 +32,7 @@ const projectOrderSchema = new mongoose.Schema(
           url: { type: String, default: '' },
           publicId: { type: String, default: '' },
           bytes: { type: Number, default: 0 },
+          format: { type: String, default: '' },
         },
       ],
       default: [],

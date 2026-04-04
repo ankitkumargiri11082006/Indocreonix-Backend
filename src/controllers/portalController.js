@@ -3,6 +3,7 @@ import { OAuth2Client } from "google-auth-library";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { env } from "../config/env.js";
+import { cloudinary } from "../config/cloudinary.js";
 import { PortalAccount } from "../models/PortalAccount.js";
 import { CareerApplication } from "../models/CareerApplication.js";
 import { ProjectOrder } from "../models/ProjectOrder.js";
@@ -74,6 +75,21 @@ function buildEmailQuery(email = "") {
     .trim();
   if (!normalized) return null;
   return { $regex: `^${escapeRegex(normalized)}$`, $options: "i" };
+}
+
+function getPortalSignedDocumentUrl(publicId, resourceType = "raw") {
+  if (!publicId) return "";
+
+  const expiresAt = Math.floor(Date.now() / 1000) + 60 * 30;
+  return cloudinary.url(publicId, {
+    resource_type: resourceType,
+    type: "upload",
+    secure: true,
+    sign_url: true,
+    expires_at: expiresAt,
+    attachment: true,
+    format: "pdf",
+  });
 }
 
 async function ensurePortalAccountFromGoogle({
@@ -336,23 +352,87 @@ export const getMyCareerApplications = asyncHandler(async (req, res) => {
     emailQuery ? { email: emailQuery } : { email: user.email },
   )
     .sort({ createdAt: -1 })
-    .select("status roleType createdAt adminNotes opportunity")
+    .select("status roleType createdAt adminNotes opportunity offerLetter certificate")
     .populate("opportunity", "title")
     .lean();
 
-  const normalizedItems = items.map((item) => ({
-    id: String(item._id),
-    role:
-      item.opportunity?.title ||
-      (item.roleType === "internship" ? "Internship Role" : "Job Role"),
-    status: mapCareerStatus(item.status),
-    submittedAt: item.createdAt
-      ? new Date(item.createdAt).toISOString().slice(0, 10)
-      : "",
-    notes: item.adminNotes || "Application received and under processing.",
-  }));
+  const normalizedItems = items.map((item) => {
+    const offerApproved = Boolean(item.offerLetter?.isApproved);
+    const certificateApproved = Boolean(item.certificate?.isApproved);
+
+    return {
+      id: String(item._id),
+      role:
+        item.opportunity?.title ||
+        (item.roleType === "internship" ? "Internship Role" : "Job Role"),
+      status: mapCareerStatus(item.status),
+      submittedAt: item.createdAt
+        ? new Date(item.createdAt).toISOString().slice(0, 10)
+        : "",
+      notes: item.adminNotes || "Application received and under processing.",
+      offerLetter: {
+        isSent: Boolean(item.offerLetter?.publicId),
+        isApproved: offerApproved,
+        sentAt: item.offerLetter?.sentAt || null,
+        downloadUrl:
+          offerApproved && item.offerLetter?.publicId
+            ? getPortalSignedDocumentUrl(
+                item.offerLetter.publicId,
+                item.offerLetter.resourceType || "raw",
+              )
+            : "",
+      },
+      certificate: {
+        isSent: Boolean(item.certificate?.publicId),
+        isApproved: certificateApproved,
+        sentAt: item.certificate?.sentAt || null,
+        downloadUrl:
+          certificateApproved && item.certificate?.publicId
+            ? getPortalSignedDocumentUrl(
+                item.certificate.publicId,
+                item.certificate.resourceType || "raw",
+              )
+            : "",
+      },
+    };
+  });
 
   res.json({ items: normalizedItems });
+});
+
+export const getMyCareerApplicationDocuments = asyncHandler(async (req, res) => {
+  const user = req.portalUser;
+  const item = await CareerApplication.findById(req.params.id)
+    .select("email offerLetter certificate")
+    .lean();
+
+  if (!item) {
+    throw new ApiError(404, "Career application not found");
+  }
+
+  const normalizedApplicationEmail = String(item.email || "").toLowerCase().trim();
+  const normalizedUserEmail = String(user.email || "").toLowerCase().trim();
+  if (!normalizedApplicationEmail || normalizedApplicationEmail !== normalizedUserEmail) {
+    throw new ApiError(403, "You are not authorized to access this document");
+  }
+
+  const canDownloadOffer = Boolean(item.offerLetter?.publicId && item.offerLetter?.isApproved);
+  const canDownloadCertificate = Boolean(item.certificate?.publicId && item.certificate?.isApproved);
+
+  res.json({
+    offerLetter: {
+      canDownload: canDownloadOffer,
+      downloadUrl: canDownloadOffer
+        ? getPortalSignedDocumentUrl(item.offerLetter.publicId, item.offerLetter.resourceType || "raw")
+        : "",
+    },
+    certificate: {
+      canDownload: canDownloadCertificate,
+      downloadUrl: canDownloadCertificate
+        ? getPortalSignedDocumentUrl(item.certificate.publicId, item.certificate.resourceType || "raw")
+        : "",
+    },
+  });
 });
 
 export const getMyProjects = asyncHandler(async (req, res) => {
@@ -646,7 +726,9 @@ export const getPortalCareerApplicationsAdmin = asyncHandler(
 
     const items = await CareerApplication.find(query)
       .sort({ createdAt: -1 })
-      .select("fullName email roleType status adminNotes createdAt opportunity")
+      .select(
+        "fullName email roleType status adminNotes createdAt opportunity offerLetter certificate",
+      )
       .populate("opportunity", "title")
       .lean();
 

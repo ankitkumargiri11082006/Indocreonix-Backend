@@ -1,13 +1,42 @@
 import { asyncHandler } from '../utils/asyncHandler.js'
 import { ApiError } from '../utils/apiError.js'
+import PDFDocument from 'pdfkit'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { cloudinary } from '../config/cloudinary.js'
 import { Opportunity } from '../models/Opportunity.js'
 import { CareerApplication } from '../models/CareerApplication.js'
 import { AdminAuditLog } from '../models/AdminAuditLog.js'
 import { clearCacheByNamespace, getCached, setCached } from '../utils/publicCache.js'
-import { sendApplicationConfirmation, sendApplicationNotification, sendStatusUpdateNotification, sendOnboardingDocsRequestEmail } from '../utils/emailService.js'
+import {
+  sendApplicationConfirmation,
+  sendApplicationNotification,
+  sendStatusUpdateNotification,
+  sendOnboardingDocsRequestEmail,
+  sendOfferLetterIssuedEmail,
+  sendCertificateIssuedEmail,
+} from '../utils/emailService.js'
 
 const OPPORTUNITIES_PUBLIC_CACHE_NAMESPACE = 'careers:opportunities:public'
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const COMPANY_LETTERHEAD_BACKGROUND_PATH = path.resolve(__dirname, '../../assets/offer-letter-letterhead.png')
+const LETTERHEAD_SAFE_AREA = {
+  top: 270,
+  right: 80,
+  bottom: 168,
+  left: 80,
+}
+
+function applyCompanyLetterhead(doc) {
+  if (fs.existsSync(COMPANY_LETTERHEAD_BACKGROUND_PATH)) {
+    doc.image(COMPANY_LETTERHEAD_BACKGROUND_PATH, 0, 0, {
+      width: doc.page.width,
+      height: doc.page.height,
+    })
+  }
+}
 
 async function createAuditLog(req, action, entity, entityId = '', metadata = {}) {
   await AdminAuditLog.create({
@@ -159,12 +188,15 @@ function uploadPdfToCloudinary(fileBuffer, originalname, options = {}) {
     const uploadOptions = {
       folder,
       resource_type: resourceType,
-      access_control: accessControl,
       public_id: `${publicIdPrefix}-${Date.now()}-${safeBaseName}`,
       use_filename: false,
       unique_filename: false,
       overwrite: false,
       ...extraUploadOptions,
+    }
+
+    if (Array.isArray(accessControl) && accessControl.length) {
+      uploadOptions.access_control = accessControl
     }
 
     if (resourceType === 'image') {
@@ -178,6 +210,256 @@ function uploadPdfToCloudinary(fileBuffer, originalname, options = {}) {
 
     uploadStream.end(fileBuffer)
   })
+}
+
+function formatDateText(value) {
+  if (!value) return ''
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return String(value)
+  }
+
+  return parsed.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+}
+
+function buildOfferLetterPdfBuffer(payload) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: 'A4',
+      margins: LETTERHEAD_SAFE_AREA,
+    })
+    const chunks = []
+
+    doc.on('data', (chunk) => chunks.push(chunk))
+    doc.on('end', () => resolve(Buffer.concat(chunks)))
+    doc.on('error', reject)
+
+    applyCompanyLetterhead(doc)
+    doc.y = LETTERHEAD_SAFE_AREA.top + 8
+
+    const fullName = payload.candidateName || 'Candidate'
+    const firstName = String(fullName).trim().split(/\s+/)[0] || 'Candidate'
+    const roleTitle = payload.role || 'Intern'
+    const joiningDate = payload.startDate || 'the agreed date'
+    const duration = payload.duration || 'the agreed period'
+    const stipend = payload.stipend || 'As discussed'
+    const managerName = payload.managerName || 'Hiring Manager'
+    const managerTitle = payload.managerTitle || 'Human Resources'
+
+    const contentLeft = doc.page.margins.left
+    const contentTop = doc.page.margins.top
+    const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right
+
+    doc.font('Helvetica-Bold').fontSize(24).fillColor('#0f172a').text('Offer Letter', contentLeft, contentTop, {
+      width: contentWidth,
+      align: 'center',
+    })
+
+    doc.moveTo(contentLeft, doc.y + 8).lineTo(contentLeft + contentWidth, doc.y + 8).lineWidth(1).strokeColor('#cbd5e1').stroke()
+    doc.y += 22
+
+    const recipientY = doc.y
+    doc.font('Helvetica').fontSize(11).fillColor('#334155').text('To,', contentLeft, recipientY)
+    doc.font('Helvetica-Bold').fontSize(12).fillColor('#111827').text(fullName, contentLeft, recipientY + 16)
+    if (payload.candidateAddress) {
+      doc.font('Helvetica').fontSize(11).fillColor('#334155').text(payload.candidateAddress, contentLeft, recipientY + 33, {
+        width: Math.round(contentWidth * 0.58),
+      })
+    }
+
+    doc.font('Helvetica').fontSize(11).fillColor('#334155').text(`Date: ${formatDateText(new Date())}`, contentLeft, recipientY, {
+      width: contentWidth,
+      align: 'right',
+    })
+
+    doc.y = recipientY + 68
+    doc.font('Helvetica-Bold').fontSize(12).fillColor('#0f172a').text(`Subject: Internship Offer - ${roleTitle}`, contentLeft, doc.y, {
+      width: contentWidth,
+    })
+
+    doc.y += 20
+    doc.font('Helvetica').fontSize(11).fillColor('#1f2937').text(`Dear ${firstName},`, contentLeft, doc.y)
+    doc.y += 20
+
+    doc.font('Helvetica').fontSize(11).fillColor('#1f2937').text(
+      `We are pleased to offer you the position of ${roleTitle} at Indocreonix. ` +
+        `Your engagement will commence on ${joiningDate} for a duration of ${duration}. ` +
+        `You will receive a stipend/compensation of ${stipend}.`,
+      contentLeft,
+      doc.y,
+      {
+        width: contentWidth,
+        align: 'justify',
+        lineGap: 2,
+      }
+    )
+
+    doc.moveDown(0.9)
+    doc.text(
+      'During your engagement, you are expected to uphold company policies, maintain confidentiality, and perform your assigned responsibilities with professionalism and integrity.',
+      {
+        width: contentWidth,
+        align: 'justify',
+        lineGap: 2,
+      }
+    )
+
+    doc.moveDown(0.9)
+    doc.text(
+      'Please confirm your acceptance of this offer by replying to the HR team. We look forward to welcoming you to Indocreonix.',
+      {
+        width: contentWidth,
+        align: 'justify',
+        lineGap: 2,
+      }
+    )
+
+    doc.moveDown(1)
+    const summaryY = doc.y
+    const summaryHeight = 74
+    doc.roundedRect(contentLeft, summaryY, contentWidth, summaryHeight, 6).fillAndStroke('#f8fafc', '#e2e8f0')
+
+    doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(10).text('Offer Summary', contentLeft + 12, summaryY + 10)
+    doc.font('Helvetica').fontSize(10).fillColor('#334155').text(
+      `Role: ${roleTitle}   |   Start Date: ${joiningDate}   |   Duration: ${duration}   |   Stipend: ${stipend}`,
+      contentLeft + 12,
+      summaryY + 28,
+      {
+        width: contentWidth - 24,
+        lineGap: 2,
+      }
+    )
+
+    doc.y = summaryY + summaryHeight + 18
+    doc.font('Helvetica').fontSize(11).fillColor('#1f2937').text('Sincerely,')
+    doc.moveDown(0.8)
+    doc.moveTo(contentLeft, doc.y).lineTo(contentLeft + 190, doc.y).lineWidth(0.8).strokeColor('#94a3b8').stroke()
+    doc.moveDown(0.5)
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827').text(managerName)
+    doc.font('Helvetica').fontSize(10).fillColor('#475569').text(managerTitle)
+    doc.text('Indocreonix')
+
+    doc.end()
+  })
+}
+
+function buildCertificatePdfBuffer(payload) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: 'A4',
+      layout: 'portrait',
+      margins: LETTERHEAD_SAFE_AREA,
+    })
+    const chunks = []
+
+    doc.on('data', (chunk) => chunks.push(chunk))
+    doc.on('end', () => resolve(Buffer.concat(chunks)))
+    doc.on('error', reject)
+
+    applyCompanyLetterhead(doc)
+    doc.y = LETTERHEAD_SAFE_AREA.top + 22
+
+    const contentLeft = doc.page.margins.left
+    const contentTop = doc.page.margins.top
+    const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right
+    const fullName = payload.fullName || 'Candidate Name'
+    const courseTitle = payload.courseTitle || 'Program'
+    const completionDate = payload.completionDate || formatDateText(new Date())
+    const certificateId = payload.certificateId || `CERT-${Date.now()}`
+
+    doc.font('Helvetica-Bold').fontSize(28).fillColor('#14532d').text('Certificate of Achievement', contentLeft, contentTop, {
+      width: contentWidth,
+      align: 'center',
+    })
+    doc.moveDown(0.8)
+
+    doc.font('Helvetica').fontSize(12).fillColor('#334155').text('This certificate is proudly presented to', {
+      width: contentWidth,
+      align: 'center',
+    })
+    doc.moveDown(0.6)
+
+    doc.font('Helvetica-Bold').fontSize(30).fillColor('#0f172a').text(fullName, {
+      width: contentWidth,
+      align: 'center',
+    })
+
+    doc.moveDown(0.8)
+    doc.font('Helvetica').fontSize(13).fillColor('#1f2937').text('For successfully completing', {
+      width: contentWidth,
+      align: 'center',
+    })
+    doc.moveDown(0.5)
+
+    doc.font('Helvetica-Bold').fontSize(20).fillColor('#166534').text(courseTitle, {
+      width: contentWidth,
+      align: 'center',
+    })
+
+    doc.moveDown(1.8)
+    const footerY = doc.y
+    const colWidth = Math.floor(contentWidth / 2)
+
+    doc.font('Helvetica').fontSize(11).fillColor('#334155').text(`Completion Date: ${completionDate}`, contentLeft, footerY, {
+      width: colWidth,
+      align: 'left',
+    })
+    doc.text(`Certificate ID: ${certificateId}`, contentLeft + colWidth, footerY, {
+      width: colWidth,
+      align: 'right',
+    })
+
+    doc.moveDown(1.4)
+    doc.moveTo(contentLeft, doc.y).lineTo(contentLeft + contentWidth, doc.y).lineWidth(0.8).strokeColor('#cbd5e1').stroke()
+    doc.moveDown(0.5)
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#0f172a').text('Authorized by Indocreonix', {
+      width: contentWidth,
+      align: 'center',
+    })
+
+    doc.end()
+  })
+}
+
+function normalizeOfferLetterPayload(application, payload = {}) {
+  const existing = application.offerLetter || {}
+  return {
+    candidateName: String(payload.candidateName || existing.candidateName || application.fullName || '').trim(),
+    candidateAddress: String(payload.candidateAddress || existing.candidateAddress || application.city || '').trim(),
+    role: String(payload.role || existing.role || application.opportunity?.title || application.roleType || '').trim(),
+    startDate: String(payload.startDate || existing.startDate || '').trim(),
+    duration: String(payload.duration || existing.duration || '').trim(),
+    stipend: String(payload.stipend || existing.stipend || '').trim(),
+    managerName: String(payload.managerName || existing.managerName || 'Indocreonix HR').trim(),
+    managerTitle: String(payload.managerTitle || existing.managerTitle || 'Human Resources').trim(),
+  }
+}
+
+function normalizeCertificatePayload(application, payload = {}) {
+  const existing = application.certificate || {}
+
+  return {
+    fullName: String(payload.fullName || existing.fullName || application.fullName || '').trim(),
+    courseTitle: String(payload.courseTitle || existing.courseTitle || application.opportunity?.title || 'Internship Program').trim(),
+    completionDate: String(payload.completionDate || existing.completionDate || formatDateText(new Date())).trim(),
+    certificateId: String(
+      payload.certificateId ||
+        existing.certificateId ||
+        `CERT-${new Date().getFullYear()}-${String(application._id).slice(-6).toUpperCase()}`
+    ).trim(),
+  }
+}
+
+function applyApprovalState(target, approved, notes, actorEmail) {
+  target.isApproved = approved
+  target.approvedAt = approved ? new Date() : null
+  target.approvedByEmail = approved ? actorEmail : ''
+  target.approvalNotes = typeof notes === 'string' ? notes.trim() : target.approvalNotes || ''
 }
 
 export const getPublicOpportunities = asyncHandler(async (req, res) => {
@@ -344,6 +626,26 @@ export const getApplications = asyncHandler(async (req, res) => {
           : '') ||
         item.onboardingDocsUrl ||
         '',
+      offerLetter: {
+        ...(item.offerLetter || {}),
+        url:
+          (item.offerLetter?.publicId
+            ? await resolveCloudinaryCvDelivery(
+                item.offerLetter.publicId,
+                item.offerLetter.resourceType || 'raw'
+              )
+            : '') || item.offerLetter?.url || '',
+      },
+      certificate: {
+        ...(item.certificate || {}),
+        url:
+          (item.certificate?.publicId
+            ? await resolveCloudinaryCvDelivery(
+                item.certificate.publicId,
+                item.certificate.resourceType || 'raw'
+              )
+            : '') || item.certificate?.url || '',
+      },
     }))
   )
 
@@ -544,6 +846,237 @@ export const deleteOnboardingDocs = asyncHandler(async (req, res) => {
   res.json({ message: 'Onboarding document deleted' })
 })
 
+export const sendOfferLetter = asyncHandler(async (req, res) => {
+  const item = await CareerApplication.findById(req.params.id).populate('opportunity', 'title')
+  if (!item) throw new ApiError(404, 'Application not found')
+
+  const offerPayload = normalizeOfferLetterPayload(item, req.body || {})
+  if (!offerPayload.candidateName || !offerPayload.role) {
+    throw new ApiError(400, 'Candidate name and role are required to generate offer letter')
+  }
+
+  const pdfBuffer = await buildOfferLetterPdfBuffer(offerPayload)
+  const uploaded = await uploadPdfToCloudinary(
+    pdfBuffer,
+    `${offerPayload.candidateName || item.fullName}-offer-letter.pdf`,
+    {
+      folder: 'indocreonix/career-documents/offer-letters',
+      publicIdPrefix: 'offer-letter',
+      resourceType: 'raw',
+      accessControl: null,
+      extraUploadOptions: {
+        format: 'pdf',
+      },
+    }
+  )
+
+  if (item.offerLetter?.publicId) {
+    await destroyCvAsset(item.offerLetter.publicId, item.offerLetter.resourceType || 'raw')
+  }
+
+  item.offerLetter = {
+    ...offerPayload,
+    publicId: uploaded.public_id,
+    resourceType: uploaded.resource_type || 'raw',
+    url: uploaded.secure_url || getCloudinaryCvUrl(uploaded.public_id, uploaded.resource_type || 'raw'),
+    sentAt: new Date(),
+    sentByEmail: req.user?.email || '',
+    isApproved: false,
+    approvedAt: null,
+    approvedByEmail: '',
+    approvalNotes: '',
+  }
+
+  item.isUnreadForAdmin = false
+  await item.save()
+
+  const baseUrl = process.env.FRONTEND_URL || 'https://indocreonix.com'
+  sendOfferLetterIssuedEmail(item.email, {
+    fullName: item.fullName,
+    opportunityTitle: item.opportunity?.title || item.roleType,
+    portalUrl: `${baseUrl}/portal`,
+  }).catch((err) => console.error('[Email] Offer letter issue notification failed:', err.message))
+
+  await createAuditLog(req, 'SEND_OFFER_LETTER', 'CareerApplication', item._id, {
+    email: item.email,
+    role: offerPayload.role,
+  })
+
+  res.json({ message: 'Offer letter generated and sent for review', item })
+})
+
+export const sendCertificate = asyncHandler(async (req, res) => {
+  const item = await CareerApplication.findById(req.params.id).populate('opportunity', 'title')
+  if (!item) throw new ApiError(404, 'Application not found')
+
+  const certificatePayload = normalizeCertificatePayload(item, req.body || {})
+  if (!certificatePayload.fullName || !certificatePayload.courseTitle) {
+    throw new ApiError(400, 'Candidate name and course title are required to generate certificate')
+  }
+
+  const pdfBuffer = await buildCertificatePdfBuffer(certificatePayload)
+  const uploaded = await uploadPdfToCloudinary(
+    pdfBuffer,
+    `${certificatePayload.fullName || item.fullName}-certificate.pdf`,
+    {
+      folder: 'indocreonix/career-documents/certificates',
+      publicIdPrefix: 'certificate',
+      resourceType: 'raw',
+      accessControl: null,
+      extraUploadOptions: {
+        format: 'pdf',
+      },
+    }
+  )
+
+  if (item.certificate?.publicId) {
+    await destroyCvAsset(item.certificate.publicId, item.certificate.resourceType || 'raw')
+  }
+
+  item.certificate = {
+    ...certificatePayload,
+    publicId: uploaded.public_id,
+    resourceType: uploaded.resource_type || 'raw',
+    url: uploaded.secure_url || getCloudinaryCvUrl(uploaded.public_id, uploaded.resource_type || 'raw'),
+    sentAt: new Date(),
+    sentByEmail: req.user?.email || '',
+    isApproved: false,
+    approvedAt: null,
+    approvedByEmail: '',
+    approvalNotes: '',
+  }
+
+  item.isUnreadForAdmin = false
+  await item.save()
+
+  const baseUrl = process.env.FRONTEND_URL || 'https://indocreonix.com'
+  sendCertificateIssuedEmail(item.email, {
+    fullName: item.fullName,
+    portalUrl: `${baseUrl}/portal`,
+  }).catch((err) => console.error('[Email] Certificate issue notification failed:', err.message))
+
+  await createAuditLog(req, 'SEND_CERTIFICATE', 'CareerApplication', item._id, {
+    email: item.email,
+    certificateId: certificatePayload.certificateId,
+  })
+
+  res.json({ message: 'Certificate generated and sent for review', item })
+})
+
+export const updateOfferLetterApproval = asyncHandler(async (req, res) => {
+  const item = await CareerApplication.findById(req.params.id)
+  if (!item) throw new ApiError(404, 'Application not found')
+
+  if (!item.offerLetter?.publicId) {
+    throw new ApiError(400, 'Offer letter is not generated yet')
+  }
+
+  const approved = Boolean(req.body?.approved)
+  applyApprovalState(item.offerLetter, approved, req.body?.notes, req.user?.email || '')
+  await item.save()
+
+  await createAuditLog(req, 'APPROVE_OFFER_LETTER', 'CareerApplication', item._id, {
+    approved,
+    approvedBy: req.user?.email || '',
+  })
+
+  res.json({ message: approved ? 'Offer letter approved' : 'Offer letter approval revoked', item })
+})
+
+export const updateCertificateApproval = asyncHandler(async (req, res) => {
+  const item = await CareerApplication.findById(req.params.id)
+  if (!item) throw new ApiError(404, 'Application not found')
+
+  if (!item.certificate?.publicId) {
+    throw new ApiError(400, 'Certificate is not generated yet')
+  }
+
+  const approved = Boolean(req.body?.approved)
+  applyApprovalState(item.certificate, approved, req.body?.notes, req.user?.email || '')
+  await item.save()
+
+  await createAuditLog(req, 'APPROVE_CERTIFICATE', 'CareerApplication', item._id, {
+    approved,
+    approvedBy: req.user?.email || '',
+  })
+
+  res.json({ message: approved ? 'Certificate approved' : 'Certificate approval revoked', item })
+})
+
+export const deleteOfferLetter = asyncHandler(async (req, res) => {
+  const item = await CareerApplication.findById(req.params.id)
+  if (!item) throw new ApiError(404, 'Application not found')
+
+  if (!item.offerLetter?.publicId) {
+    throw new ApiError(400, 'Offer letter is not generated yet')
+  }
+
+  await destroyCvAsset(item.offerLetter.publicId, item.offerLetter.resourceType || 'raw')
+
+  item.offerLetter = {
+    candidateName: '',
+    candidateAddress: '',
+    role: '',
+    startDate: '',
+    duration: '',
+    stipend: '',
+    managerName: '',
+    managerTitle: '',
+    publicId: '',
+    resourceType: 'raw',
+    url: '',
+    sentAt: null,
+    sentByEmail: '',
+    isApproved: false,
+    approvedAt: null,
+    approvedByEmail: '',
+    approvalNotes: '',
+  }
+
+  await item.save()
+
+  await createAuditLog(req, 'DELETE_OFFER_LETTER', 'CareerApplication', item._id, {
+    deletedBy: req.user?.email || '',
+  })
+
+  res.json({ message: 'Offer letter deleted', item })
+})
+
+export const deleteCertificate = asyncHandler(async (req, res) => {
+  const item = await CareerApplication.findById(req.params.id)
+  if (!item) throw new ApiError(404, 'Application not found')
+
+  if (!item.certificate?.publicId) {
+    throw new ApiError(400, 'Certificate is not generated yet')
+  }
+
+  await destroyCvAsset(item.certificate.publicId, item.certificate.resourceType || 'raw')
+
+  item.certificate = {
+    fullName: '',
+    courseTitle: '',
+    completionDate: '',
+    certificateId: '',
+    publicId: '',
+    resourceType: 'raw',
+    url: '',
+    sentAt: null,
+    sentByEmail: '',
+    isApproved: false,
+    approvedAt: null,
+    approvedByEmail: '',
+    approvalNotes: '',
+  }
+
+  await item.save()
+
+  await createAuditLog(req, 'DELETE_CERTIFICATE', 'CareerApplication', item._id, {
+    deletedBy: req.user?.email || '',
+  })
+
+  res.json({ message: 'Certificate deleted', item })
+})
+
 export const deleteApplication = asyncHandler(async (req, res) => {
   const item = await CareerApplication.findById(req.params.id)
 
@@ -557,12 +1090,22 @@ export const deleteApplication = asyncHandler(async (req, res) => {
     await destroyCvAsset(item.onboardingDocsPublicId, item.onboardingDocsResourceType || 'raw')
   }
 
+  if (item.offerLetter?.publicId) {
+    await destroyCvAsset(item.offerLetter.publicId, item.offerLetter.resourceType || 'raw')
+  }
+
+  if (item.certificate?.publicId) {
+    await destroyCvAsset(item.certificate.publicId, item.certificate.resourceType || 'raw')
+  }
+
   await item.deleteOne()
 
   await createAuditLog(req, 'DELETE_CAREER_APPLICATION', 'CareerApplication', req.params.id, {
     roleType: item.roleType,
     hadCv: Boolean(item.cvPublicId),
     hadOnboardingDocs: Boolean(item.onboardingDocsPublicId),
+    hadOfferLetter: Boolean(item.offerLetter?.publicId),
+    hadCertificate: Boolean(item.certificate?.publicId),
   })
 
   res.json({ message: 'Application deleted' })

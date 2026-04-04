@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   deletePortalUserAdmin,
   getMyCareerApplications,
+  getMyCareerApplicationDocuments,
   getMyProjects,
   getPortalCareerApplicationsAdmin,
   getPortalProjectsAdmin,
@@ -30,6 +31,11 @@ router.get(
   "/career/applications/me",
   protectPortalUser,
   getMyCareerApplications,
+);
+router.get(
+  "/career/applications/:id/documents",
+  protectPortalUser,
+  getMyCareerApplicationDocuments,
 );
 router.get("/projects/me", protectPortalUser, getMyProjects);
 router.patch("/profile/me", protectPortalUser, updateMyPortalProfile);

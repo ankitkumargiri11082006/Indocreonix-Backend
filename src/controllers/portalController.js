@@ -1,5 +1,4 @@
 import bcrypt from "bcryptjs";
-import { OAuth2Client } from "google-auth-library";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { env } from "../config/env.js";
@@ -9,8 +8,8 @@ import { CareerApplication } from "../models/CareerApplication.js";
 import { ProjectOrder } from "../models/ProjectOrder.js";
 import { signPortalToken } from "../middlewares/portalAuth.js";
 import { sendPortalOtpEmail } from "../utils/emailService.js";
+import { verifyGoogleIdToken } from "../utils/googleAuth.js";
 
-const googleClient = new OAuth2Client();
 const OTP_EXPIRES_MINUTES = Number(
   process.env.PORTAL_OTP_EXPIRES_MINUTES || 10,
 );
@@ -318,11 +317,7 @@ export const loginOrSignupWithGooglePortal = asyncHandler(async (req, res) => {
 
   let payload;
   try {
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: env.googleClientId,
-    });
-    payload = ticket.getPayload();
+    payload = await verifyGoogleIdToken(credential, env.googleClientId);
   } catch {
     throw new ApiError(401, "Invalid Google credential");
   }

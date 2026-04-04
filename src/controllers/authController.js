@@ -3,10 +3,8 @@ import { ApiError } from '../utils/apiError.js'
 import { User } from '../models/User.js'
 import { signToken } from '../utils/token.js'
 import { DEFAULT_ADMIN_PERMISSIONS } from '../constants/adminPermissions.js'
-import { OAuth2Client } from 'google-auth-library'
 import { env } from '../config/env.js'
-
-const googleClient = new OAuth2Client()
+import { verifyGoogleIdToken } from '../utils/googleAuth.js'
 
 function sanitizeUser(user) {
   return {
@@ -72,11 +70,7 @@ export const loginWithGoogle = asyncHandler(async (req, res) => {
 
   let payload
   try {
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: env.googleClientId,
-    })
-    payload = ticket.getPayload()
+    payload = await verifyGoogleIdToken(credential, env.googleClientId)
   } catch {
     throw new ApiError(401, 'Invalid Google credential')
   }

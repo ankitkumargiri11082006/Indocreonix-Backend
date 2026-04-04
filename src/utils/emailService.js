@@ -479,6 +479,43 @@ export function buildContactNotificationEmail({ name, email, phone, company, mes
 // PUBLIC SEND HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
+export function buildPortalOtpEmail({ name, otp, expiresInMinutes }) {
+  const subject = `Your ${BRAND} OTP Code`
+  const preview = `Hi ${name || 'there'}, your OTP code is ${otp}. It expires in ${expiresInMinutes} minutes.`
+
+  const body = `
+  ${header('Portal Access')}
+  <div class="tag-strip"><span class="tag">OTP Verification</span></div>
+  <div class="body">
+    <p class="greeting">Hello ${name || 'there'},</p>
+    <p class="intro">Use the following one-time password to verify your email address and continue.</p>
+
+    <div class="box box-success" style="margin-top:8px">
+      <div class="box-label">Your OTP Code</div>
+      <div class="box-value" style="font-weight:700;font-size:20px;letter-spacing:2px">${otp}</div>
+      <div style="margin-top:8px;font-size:13px;color:${COLOR.mutedText}">Expires in ${expiresInMinutes} minutes</div>
+    </div>
+
+    <div class="divider"></div>
+    <p class="intro" style="font-size:13px;color:${COLOR.mutedText}">If you did not request this code, you can safely ignore this email.</p>
+
+    <p class="intro" style="margin-top:16px">Regards,<br/><strong style="color:${COLOR.btnBg}">Team ${BRAND}</strong></p>
+  </div>`
+
+  return { subject, html: shell(preview, body) }
+}
+
+export async function sendPortalOtpEmail(to, data) {
+  const { subject, html } = buildPortalOtpEmail(data)
+  return sendMail({
+    from: `"${BRAND} Info" <${getSenderAddress('info')}>`,
+    replyTo: env.resendInfoFrom,
+    to,
+    subject,
+    html,
+  })
+}
+
 /**
  * Career application — smart dispatcher
  * Sends the correct template (job vs internship) based on roleType

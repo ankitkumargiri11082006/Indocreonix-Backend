@@ -55,6 +55,10 @@ export const login = asyncHandler(async (req, res) => {
   })
 })
 
+export const loginWithGoogle = asyncHandler(async () => {
+  throw new ApiError(501, 'Google login is not configured')
+})
+
 export const me = asyncHandler(async (req, res) => {
   await ensureBootstrapSuperadmin(req.user)
   res.json({ user: sanitizeUser(req.user) })

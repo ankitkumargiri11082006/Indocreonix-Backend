@@ -77,10 +77,24 @@ export async function fetchGa4Overview({ days = 7 } = {}) {
     }),
   ])
 
-  const [realtimeReport] = await analyticsClient.runRealtimeReport({
-    property,
-    metrics: [{ name: 'activeUsers' }],
-  })
+  const [realtimeReport, realtimeByPage, realtimeByCountry] = await Promise.all([
+    analyticsClient.runRealtimeReport({
+      property,
+      metrics: [{ name: 'activeUsers' }],
+    }),
+    analyticsClient.runRealtimeReport({
+      property,
+      dimensions: [{ name: 'pagePath' }],
+      metrics: [{ name: 'activeUsers' }],
+      limit: 8,
+    }),
+    analyticsClient.runRealtimeReport({
+      property,
+      dimensions: [{ name: 'country' }],
+      metrics: [{ name: 'activeUsers' }],
+      limit: 8,
+    }),
+  ])
 
   const response = {
     enabled: true,
@@ -107,6 +121,16 @@ export async function fetchGa4Overview({ days = 7 } = {}) {
       deviceCategories?.[0]?.rows,
       'device',
       'sessions'
+    ),
+    realtimeByPage: normalizeRows(
+      realtimeByPage?.[0]?.rows,
+      'page',
+      'active users'
+    ),
+    realtimeByCountry: normalizeRows(
+      realtimeByCountry?.[0]?.rows,
+      'country',
+      'active users'
     ),
   }
 

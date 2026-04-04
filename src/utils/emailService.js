@@ -513,94 +513,32 @@ export async function sendApplicationNotification(data) {
 }
 
 export function buildOnboardingDocsRequestEmail({ fullName, opportunityTitle, actionUrl }) {
-  const subject = `Action Required: Submit Your Onboarding Documents — ${BRAND}`
-  const preview = `Hi ${fullName}, congratulations! Please submit the required documents to complete your onboarding at ${BRAND}.`
-
-  let _rowNum = 0
-  const docRow = (title, note) => {
-    _rowNum++
-    const num = _rowNum
-    return `
-    <tr>
-      <td style="padding:12px 14px 12px 16px;border-bottom:1px solid ${COLOR.border};vertical-align:middle;width:52px;">
-        <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
-          <tr>
-            <td width="32" height="32" align="center" valign="middle"
-              style="width:32px;height:32px;background:#0a1f3d;border-radius:50%;font-family:Arial,sans-serif;font-size:14px;font-weight:700;color:#ffffff;line-height:32px;text-align:center;">
-              ${num}
-            </td>
-          </tr>
-        </table>
-      </td>
-      <td style="padding:12px 16px 12px 4px;border-bottom:1px solid ${COLOR.border};vertical-align:middle;">
-        <div style="font-weight:700;font-size:14px;color:${COLOR.bodyText};margin-bottom:3px;line-height:1.3;">${title}</div>
-        <div style="font-size:12px;color:${COLOR.mutedText};line-height:1.5;">${note}</div>
-      </td>
-    </tr>`
-  }
+  const subject = `Action Required: Please share your onboarding documents`
+  const preview = `Hi ${fullName}, please complete onboarding by uploading your documents.`
 
   const body = `
   ${header('Onboarding Documents Required')}
-  <div class="tag-strip">
-    <span class="tag" style="background:#ecfdf5;color:#065f46;border-color:#10b98122">&#10003; Offer Accepted</span>
-    <span class="tag" style="background:#fef9ec;color:#92400e;border-color:#f0a50022">${opportunityTitle || 'Career Role'}</span>
-  </div>
+  <div class="tag-strip"><span class="tag">📄 Documents Request</span><span class="tag" style="background:#fef9ec;color:#92400e;border-color:#f0a50022">${opportunityTitle || 'Career Role'}</span></div>
   <div class="body">
-    <p class="greeting">Dear ${fullName},</p>
-    <p class="intro">Congratulations on your successful selection at <strong>${BRAND}</strong>! We are delighted to welcome you aboard. As part of the formal onboarding process, we require the following documents to be submitted at your earliest convenience.</p>
+    <p class="greeting">Hello ${fullName},</p>
+    <p class="intro">Congratulations again on progressing through the application process. To continue onboarding, we need the following documents from you:</p>
 
-    <div class="box box-blue" style="font-size:14px;color:#1e3a8a;">
-      &#128276; <strong>Please submit all documents within 3 working days</strong> to avoid any delay in your joining process.
-    </div>
+    <ul class="steps" style="list-style-type:none;padding-left:0">
+      <li class="step-num" style="display:inline-block;min-width:auto;font-size:15px;margin-bottom:8px">✅ Aadhar card</li>
+      <li class="step-num" style="display:inline-block;min-width:auto;font-size:15px;margin-bottom:8px">✅ PAN card</li>
+      <li class="step-num" style="display:inline-block;min-width:auto;font-size:15px;margin-bottom:8px">✅ Academic certificates</li>
+      <li class="step-num" style="display:inline-block;min-width:auto;font-size:15px;margin-bottom:8px">✅ Bank passbook (if salary paid)</li>
+      <li class="step-num" style="display:inline-block;min-width:auto;font-size:15px;margin-bottom:8px">✅ Passport size photo</li>
+    </ul>
 
-    <div style="margin:20px 0;border:1px solid ${COLOR.border};border-radius:12px;overflow:hidden;">
-      <div style="background:#0a1f3d;padding:12px 18px;">
-        <span style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#ffffff;">Required Documents</span>
-      </div>
-      <table style="width:100%;border-collapse:collapse;background:#ffffff;font-family:'Inter',Arial,sans-serif;">
-        ${docRow('Aadhaar Card', 'Front and back copy &mdash; self-attested photocopy or clear scan')}
-        ${docRow('PAN Card', 'Photocopy or scan of your Permanent Account Number card')}
-        ${docRow('Academic Certificates', 'Highest qualification certificate &amp; marksheets (all semesters if applicable)')}
-        ${docRow('Bank Passbook / Cancelled Cheque', 'Required for salary account setup &mdash; first page showing your account details')}
-        ${docRow('Passport Size Photograph', '2 recent colour passport photographs (white or light background preferred)')}
-        ${docRow('Emergency Contact Details', 'Name, relationship, and phone number of a family member')}
-      </table>
-    </div>
-
-    <div class="box box-warn" style="font-size:14px;color:#78350f;">
-      &#9888;&#65039; <strong>Important:</strong> All documents must be self-attested (signed by you). Originals may be required for verification on your joining date.
-    </div>
-
-    <p style="font-size:15px;color:${COLOR.bodyText};margin:20px 0 10px;font-weight:600;">How to submit your documents:</p>
-    <div class="box box-dark" style="padding:18px 22px;margin-top:0;">
-      <div class="box-label" style="margin-bottom:12px;">Submission Options</div>
-      <ul class="steps">
-        <li>
-          <span class="step-num">1</span>
-          <span><strong>Online Upload</strong> — Click the button below to securely upload your documents via our onboarding portal.</span>
-        </li>
-        <li>
-          <span class="step-num">2</span>
-          <span><strong>Email Submission</strong> — Attach scanned copies and email them directly to <a href="mailto:hr@indocreonix.com" style="color:${COLOR.accentDark}">hr@indocreonix.com</a>.</span>
-        </li>
-        <li>
-          <span class="step-num">3</span>
-          <span><strong>In-Person</strong> — Originals can also be brought on your first day at the office.</span>
-        </li>
-      </ul>
-    </div>
-
-    <div class="btn-wrap" style="text-align:center;">
-      <a href="${actionUrl}" class="cta-btn" style="display:inline-block;background:#0a1f3d;color:#ffffff!important;padding:15px 38px;border-radius:10px;font-size:16px;font-weight:700;text-decoration:none!important;letter-spacing:0.3px;">
-        &#128196;&nbsp; Upload Documents Now
-      </a>
+    <div class="btn-wrap">
+      <a href="${actionUrl}" class="cta-btn">Upload Documents</a>
     </div>
 
     <div class="divider"></div>
-    <p class="intro" style="font-size:14px;color:${COLOR.mutedText};">If you have any questions or require assistance, please reach our HR team at <a href="mailto:hr@indocreonix.com" style="color:${COLOR.accentDark};font-weight:600;">hr@indocreonix.com</a>. We are happy to guide you through the process.</p>
+    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">If you have any questions, reply to this email or contact HR at <a href="mailto:hr@indocreonix.com" style="color:${COLOR.accentDark}">hr@indocreonix.com</a>.</p>
 
-    <p class="intro" style="margin-top:24px;">We look forward to welcoming you to the team!<br/><br/>
-    Warm regards,<br/><strong style="color:${COLOR.btnBg};">Human Resources Team<br/>${BRAND}</strong></p>
+    <p class="intro" style="margin-top:20px">Thank you,<br/><strong style="color:${COLOR.btnBg}">Indocreonix HR Team</strong></p>
   </div>`
 
   return { subject, html: shell(preview, body) }
@@ -941,48 +879,4 @@ export function buildOrderNotificationEmail({ fullName, email, phone, company, t
   </div>`
 
   return { subject, html: shell(preview, body) }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TEMPLATE 8 — PORTAL OTP VERIFICATION (to portal user)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export function buildPortalOtpEmail({ name, otp, expiresInMinutes }) {
-  const subject = `Your Verification Code — ${BRAND} Portal`
-  const preview = `Hi ${name}, your OTP code is ${otp}. It expires in ${expiresInMinutes} minutes.`
-
-  const body = `
-  ${header('Portal Verification')}
-  <div class="tag-strip"><span class="tag">&#128274; Email Verification</span><span class="tag" style="background:#fef9ec;color:#92400e;border-color:#f0a50022">OTP Code</span></div>
-  <div class="body">
-    <p class="greeting">Hello ${name},</p>
-    <p class="intro">You requested access to the <strong>${BRAND} Portal</strong>. Use the verification code below to complete your sign-up or login. This code is valid for <strong>${expiresInMinutes} minutes</strong>.</p>
-
-    <div class="box" style="background:#f0fdf4;border-left:4px solid #16a34a;text-align:center;padding:28px 22px">
-      <div class="box-label" style="color:#15803d;margin-bottom:12px">Your One-Time Password</div>
-      <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#065f46;font-family:'Inter',monospace">${otp}</div>
-      <div style="margin-top:12px;font-size:13px;color:${COLOR.mutedText}">Expires in <strong>${expiresInMinutes} minutes</strong></div>
-    </div>
-
-    <div class="box box-warn" style="font-size:14px;color:#78350f;margin-top:16px">
-      ⚠️ <strong>Do not share this code with anyone.</strong> ${BRAND} will never ask you for your OTP via phone or chat.
-    </div>
-
-    <div class="divider"></div>
-    <p class="intro" style="font-size:14px;color:${COLOR.mutedText}">If you did not request this code, you can safely ignore this email. No account changes will be made.</p>
-
-    <p class="intro" style="margin-top:20px">Warm regards,<br/><strong style="color:${COLOR.btnBg}">Team ${BRAND}</strong></p>
-  </div>`
-
-  return { subject, html: shell(preview, body) }
-}
-
-export async function sendPortalOtpEmail(to, data) {
-  const { subject, html } = buildPortalOtpEmail(data)
-  return sendMail({
-    from: `"${BRAND}" <${getSenderAddress('info')}>`,
-    to,
-    subject,
-    html,
-  })
 }

@@ -4,6 +4,10 @@ import { ContactLead } from '../models/ContactLead.js'
 import { CareerApplication } from '../models/CareerApplication.js'
 import { MediaAsset } from '../models/MediaAsset.js'
 import { ProjectOrder } from '../models/ProjectOrder.js'
+import { Client } from '../models/Client.js'
+import { Service } from '../models/Service.js'
+import { Project } from '../models/Project.js'
+import { Opportunity } from '../models/Opportunity.js'
 import { getCached, setCached } from '../utils/publicCache.js'
 
 function canAccessPermission(user, permissionKey) {
@@ -68,4 +72,78 @@ export const getSectionIndicators = asyncHandler(async (req, res) => {
   setCached('dashboard:indicators', response, { key: cacheKey, ttlMs: 10_000 })
 
   res.json(response)
+})
+
+function normalizeCounts(keys, docs) {
+  const map = docs.reduce((acc, doc) => {
+    acc[doc._id] = doc.count
+    return acc
+  }, {})
+
+  return keys.map((key) => ({ key, count: map[key] || 0 }))
+}
+
+export const getAnalyticsOverview = asyncHandler(async (_req, res) => {
+  const [
+    totalLeads,
+    totalApplications,
+    totalOrders,
+    totalServices,
+    totalClients,
+    totalProjects,
+    totalOpportunities,
+    leadStatusAgg,
+    orderStatusAgg,
+    orderCategoryAgg,
+    applicationStatusAgg,
+    applicationTypeAgg,
+  ] = await Promise.all([
+    ContactLead.countDocuments(),
+    CareerApplication.countDocuments(),
+    ProjectOrder.countDocuments(),
+    Service.countDocuments({ isActive: true }),
+    Client.countDocuments({ isActive: true }),
+    Project.countDocuments({ isActive: true }),
+    Opportunity.countDocuments({ isActive: true }),
+    ContactLead.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]),
+    ProjectOrder.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]),
+    ProjectOrder.aggregate([
+      { $group: { _id: '$projectCategory', count: { $sum: 1 } } },
+    ]),
+    CareerApplication.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]),
+    CareerApplication.aggregate([
+      { $group: { _id: '$roleType', count: { $sum: 1 } } },
+    ]),
+  ])
+
+  const leadStatusKeys = ['new', 'in_progress', 'closed']
+  const orderStatusKeys = ['new', 'qualified', 'proposal_shared', 'in_discussion', 'won', 'lost']
+  const orderCategoryKeys = ['website', 'web-app', 'android-app', 'ios-app', 'software', 'other']
+  const applicationStatusKeys = ['new', 'reviewing', 'shortlisted', 'rejected', 'hired']
+  const applicationTypeKeys = ['internship', 'job']
+
+  res.json({
+    totals: {
+      leads: totalLeads,
+      applications: totalApplications,
+      orders: totalOrders,
+      services: totalServices,
+      clients: totalClients,
+      projects: totalProjects,
+      opportunities: totalOpportunities,
+    },
+    breakdowns: {
+      leadsByStatus: normalizeCounts(leadStatusKeys, leadStatusAgg),
+      ordersByStatus: normalizeCounts(orderStatusKeys, orderStatusAgg),
+      ordersByCategory: normalizeCounts(orderCategoryKeys, orderCategoryAgg),
+      applicationsByStatus: normalizeCounts(applicationStatusKeys, applicationStatusAgg),
+      applicationsByType: normalizeCounts(applicationTypeKeys, applicationTypeAgg),
+    },
+  })
 })

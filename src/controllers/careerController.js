@@ -235,7 +235,7 @@ function createReferenceSuffix(seed) {
     hash = (hash * 31 + text.charCodeAt(index)) | 0
   }
 
-  return (Math.abs(hash) % 900000) + 1000
+  return String((Math.abs(hash) % 9000) + 1000).padStart(4, '0')
 }
 
 function buildDocumentReference(application, documentKind) {
@@ -270,26 +270,31 @@ function buildOfferLetterPdfBuffer(payload) {
     const joiningDate = payload.startDate || 'the agreed date'
     const duration = payload.duration || 'the agreed period'
     const stipend = payload.stipend || 'As discussed'
-    const referenceNumber = payload.refNumber || 'IND/INT/OFR/0000/1000'
+    const referenceNumber = payload.refNumber || 'IND/INT/OFR/2026/1000'
     const effectiveDate = formatDateText(joiningDate || new Date())
 
     const contentLeft = doc.page.margins.left
     const contentTop = doc.page.margins.top
     const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right
+    const headerLineY = contentTop - 4
 
-    doc.font('Helvetica-Bold').fontSize(24).fillColor('#0f172a').text('Offer Letter', contentLeft, contentTop, {
+    doc.moveTo(contentLeft, headerLineY).lineTo(contentLeft + contentWidth, headerLineY).lineWidth(1).strokeColor('#cbd5e1').stroke()
+
+    doc.font('Helvetica-Bold').fontSize(24).fillColor('#0f172a').text('Offer Letter', contentLeft, headerLineY + 8, {
       width: contentWidth,
       align: 'center',
     })
 
-    doc.moveTo(contentLeft, doc.y + 8).lineTo(contentLeft + contentWidth, doc.y + 8).lineWidth(1).strokeColor('#cbd5e1').stroke()
-    doc.y += 22
-
-    const recipientY = doc.y
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(`Ref No: ${referenceNumber}`, contentLeft, recipientY, {
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(`Ref No: ${referenceNumber}`, contentLeft, headerLineY + 10, {
       width: contentWidth,
       align: 'right',
     })
+    doc.font('Helvetica').fontSize(11).fillColor('#334155').text(`Date: ${effectiveDate}`, contentLeft, headerLineY + 24, {
+      width: contentWidth,
+      align: 'right',
+    })
+
+    const recipientY = headerLineY + 54
     doc.font('Helvetica').fontSize(11).fillColor('#334155').text('To,', contentLeft, recipientY)
     doc.font('Helvetica-Bold').fontSize(12).fillColor('#111827').text(fullName, contentLeft, recipientY + 16)
     if (payload.candidateAddress) {
@@ -297,11 +302,6 @@ function buildOfferLetterPdfBuffer(payload) {
         width: Math.round(contentWidth * 0.58),
       })
     }
-
-    doc.font('Helvetica').fontSize(11).fillColor('#334155').text(`Date: ${effectiveDate}`, contentLeft, recipientY + 16, {
-      width: contentWidth,
-      align: 'right',
-    })
 
     doc.y = recipientY + 68
     doc.font('Helvetica-Bold').fontSize(12).fillColor('#0f172a').text(`Subject: Internship Offer - ${roleTitle}`, contentLeft, doc.y, {
@@ -398,7 +398,7 @@ function buildCertificatePdfBuffer(payload) {
     const fullName = payload.fullName || 'Candidate Name'
     const courseTitle = payload.courseTitle || 'Program'
     const completionDate = payload.completionDate || formatDateText(new Date())
-    const referenceNumber = payload.refNumber || 'IND/INT/CRT/0000/1000'
+    const referenceNumber = payload.refNumber || 'IND/INT/CRT/2026/1000'
 
     doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(`Ref No: ${referenceNumber}`, contentLeft, contentTop, {
       width: contentWidth,

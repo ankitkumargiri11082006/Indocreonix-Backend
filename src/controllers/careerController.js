@@ -275,8 +275,9 @@ function buildOfferLetterPdfBuffer(payload) {
 
     const contentLeft = doc.page.margins.left
     const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right
-    const templateRefRowY = 224
-    const titleY = 254
+    const verticalShift = -70
+    const templateRefRowY = 224 + verticalShift
+    const titleY = 254 + verticalShift
 
     doc.font('Helvetica-Bold').fontSize(22).fillColor('#0f172a').text('Offer Letter', contentLeft, titleY, {
       width: contentWidth,
@@ -293,7 +294,7 @@ function buildOfferLetterPdfBuffer(payload) {
       align: 'right',
     })
 
-    const recipientY = titleY + 40
+    const recipientY = titleY + 34
     doc.font('Helvetica').fontSize(11).fillColor('#334155').text('To,', contentLeft, recipientY)
     doc.font('Helvetica-Bold').fontSize(12).fillColor('#111827').text(fullName, contentLeft, recipientY + 16)
     if (payload.candidateAddress) {
@@ -302,7 +303,7 @@ function buildOfferLetterPdfBuffer(payload) {
       })
     }
 
-    doc.y = recipientY + 56
+    doc.y = recipientY + 50
     doc.font('Helvetica-Bold').fontSize(12).fillColor('#0f172a').text(`Subject: Internship Offer - ${roleTitle}`, contentLeft, doc.y, {
       width: contentWidth,
     })
@@ -344,32 +345,30 @@ function buildOfferLetterPdfBuffer(payload) {
       }
     )
 
+    doc.moveDown(0.6)
+    doc.font('Helvetica-Oblique').fontSize(10).fillColor('#475569').text('This offer is subject to company terms, policies, and applicable regulations.', {
+      width: contentWidth,
+      align: 'left',
+    })
+    doc.font('Helvetica').fontSize(11).fillColor('#1f2937')
+
     doc.moveDown(1)
     const summaryY = doc.y
-    const summaryHeight = 74
+    const summaryHeight = 62
     doc.roundedRect(contentLeft, summaryY, contentWidth, summaryHeight, 6).fillAndStroke('#f8fafc', '#e2e8f0')
 
     doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(10).text('Offer Summary', contentLeft + 12, summaryY + 10)
     doc.font('Helvetica').fontSize(10).fillColor('#334155').text(
       `Role: ${roleTitle}   |   Start Date: ${joiningDate}   |   Duration: ${duration}   |   Stipend: ${stipend}`,
       contentLeft + 12,
-      summaryY + 28,
+      summaryY + 26,
       {
         width: contentWidth - 24,
         lineGap: 2,
       }
     )
 
-    doc.y = summaryY + summaryHeight + 16
-    doc.font('Helvetica').fontSize(10).fillColor('#475569').text(
-      'This offer letter is generated on official Indocreonix letterhead. Keep the above reference number for future correspondence.',
-      contentLeft,
-      doc.y,
-      {
-        width: contentWidth,
-        align: 'justify',
-      }
-    )
+    doc.y = summaryY + summaryHeight + 6
 
     doc.end()
   })

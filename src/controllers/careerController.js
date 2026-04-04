@@ -279,13 +279,13 @@ function buildOfferLetterPdfBuffer(payload) {
     const templateRefRowY = 224 + verticalShift
     const titleY = 254 + verticalShift
 
-    doc.font('Helvetica-Bold').fontSize(22).fillColor('#0f172a').text('Offer Letter', contentLeft, titleY, {
+    doc.font('Times-Bold').fontSize(24).fillColor('#0f172a').text('OFFER LETTER', contentLeft, titleY, {
       width: contentWidth,
       align: 'center',
     })
 
     // Template already prints "REF NO." and "DATE:" labels in header row.
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(referenceNumber, contentLeft + 92, templateRefRowY, {
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(referenceNumber, contentLeft + 56, templateRefRowY, {
       width: Math.floor(contentWidth * 0.46),
       align: 'left',
     })
@@ -310,7 +310,7 @@ function buildOfferLetterPdfBuffer(payload) {
 
     doc.y += 20
     doc.font('Helvetica').fontSize(11).fillColor('#1f2937').text(`Dear ${firstName},`, contentLeft, doc.y)
-    doc.y += 20
+    doc.y += 18
 
     doc.font('Helvetica').fontSize(11).fillColor('#1f2937').text(
       `We are pleased to offer you the position of ${roleTitle} at Indocreonix. ` +
@@ -337,7 +337,27 @@ function buildOfferLetterPdfBuffer(payload) {
 
     doc.moveDown(0.9)
     doc.text(
-      'Please confirm your acceptance of this offer by replying to the HR team. We look forward to welcoming you to Indocreonix.',
+      'Your reporting structure, key responsibilities, and initial goals will be shared by your reporting manager during onboarding to help you begin effectively from day one.',
+      {
+        width: contentWidth,
+        align: 'justify',
+        lineGap: 2,
+      }
+    )
+
+    doc.moveDown(0.8)
+    doc.text(
+      'Performance reviews will be conducted periodically, and any role-related updates will be communicated formally by the company as part of your professional development journey.',
+      {
+        width: contentWidth,
+        align: 'justify',
+        lineGap: 2,
+      }
+    )
+
+    doc.moveDown(0.8)
+    doc.text(
+      'Please confirm your acceptance of this offer by replying to the HR team. We look forward to welcoming you to Indocreonix and building a successful professional association together.',
       {
         width: contentWidth,
         align: 'justify',
@@ -352,7 +372,7 @@ function buildOfferLetterPdfBuffer(payload) {
     })
     doc.font('Helvetica').fontSize(11).fillColor('#1f2937')
 
-    doc.moveDown(1)
+    doc.moveDown(1.6)
     const summaryY = doc.y
     const summaryHeight = 62
     doc.roundedRect(contentLeft, summaryY, contentWidth, summaryHeight, 6).fillAndStroke('#f8fafc', '#e2e8f0')

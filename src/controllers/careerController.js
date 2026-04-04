@@ -398,56 +398,82 @@ function buildCertificatePdfBuffer(payload) {
     doc.on('error', reject)
 
     applyCompanyLetterhead(doc)
-    doc.y = LETTERHEAD_SAFE_AREA.top - 2
+    doc.y = LETTERHEAD_SAFE_AREA.top - 8
 
     const contentLeft = doc.page.margins.left
-    const contentTop = doc.page.margins.top
     const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right
     const fullName = payload.fullName || 'Candidate Name'
     const courseTitle = payload.courseTitle || 'Program'
     const completionDate = payload.completionDate || formatDateText(new Date())
     const referenceNumber = payload.refNumber || 'IND/INT/CRT/2026/1000'
+    const issueDate = formatDateText(new Date())
+    const verticalShift = -70
+    const templateRefRowY = 224 + verticalShift
+    const titleY = 254 + verticalShift
 
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(`Ref No: ${referenceNumber}`, contentLeft, contentTop, {
-      width: contentWidth,
+    // Template already has fixed labels for ref/date row.
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(referenceNumber, contentLeft + 20, templateRefRowY, {
+      width: Math.floor(contentWidth * 0.46),
+      align: 'left',
+    })
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(issueDate, contentLeft, templateRefRowY, {
+      width: contentWidth - 4,
       align: 'right',
     })
-    doc.font('Helvetica-Bold').fontSize(28).fillColor('#14532d').text('Certificate of Achievement', contentLeft, contentTop + 16, {
+
+    doc.font('Times-Bold').fontSize(31).fillColor('#14532d').text('CERTIFICATE OF ACHIEVEMENT', contentLeft, titleY, {
       width: contentWidth,
       align: 'center',
     })
-    doc.moveDown(0.8)
+    doc.moveDown(1)
 
     doc.font('Helvetica').fontSize(12).fillColor('#334155').text('This certificate is proudly presented to', {
       width: contentWidth,
       align: 'center',
     })
-    doc.moveDown(0.6)
+    doc.moveDown(0.55)
 
-    doc.font('Helvetica-Bold').fontSize(30).fillColor('#0f172a').text(fullName, {
+    doc.font('Helvetica-Bold').fontSize(36).fillColor('#0f172a').text(fullName, {
       width: contentWidth,
       align: 'center',
     })
 
-    doc.moveDown(0.8)
+    doc.moveDown(0.75)
     doc.font('Helvetica').fontSize(13).fillColor('#1f2937').text('For successfully completing', {
       width: contentWidth,
       align: 'center',
     })
-    doc.moveDown(0.5)
+    doc.moveDown(0.45)
 
-    doc.font('Helvetica-Bold').fontSize(20).fillColor('#166534').text(courseTitle, {
+    doc.font('Helvetica-Bold').fontSize(24).fillColor('#166534').text(courseTitle, {
       width: contentWidth,
       align: 'center',
     })
 
-    doc.moveDown(1.8)
-    doc.font('Helvetica').fontSize(11).fillColor('#334155').text(`Completion Date: ${completionDate}`, contentLeft, doc.y, {
+    doc.moveDown(1.2)
+    const detailsY = doc.y
+    const detailsHeight = 56
+    doc.roundedRect(contentLeft, detailsY, contentWidth, detailsHeight, 6).fillAndStroke('#f8fafc', '#e2e8f0')
+
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text('Certificate Details', contentLeft + 12, detailsY + 9)
+    doc.font('Helvetica').fontSize(10).fillColor('#334155').text(
+      `Completion Date: ${completionDate}   |   Issue Date: ${issueDate}`,
+      contentLeft + 12,
+      detailsY + 25,
+      {
+        width: contentWidth - 24,
+        align: 'left',
+      }
+    )
+
+    doc.y = detailsY + detailsHeight + 16
+    doc.font('Helvetica').fontSize(11).fillColor('#334155').text('This certificate is issued by Indocreonix in recognition of dedicated effort and successful completion of the program.', contentLeft, doc.y, {
       width: contentWidth,
       align: 'center',
+      lineGap: 1,
     })
 
-    doc.moveDown(1.4)
+    doc.moveDown(1.3)
     doc.moveTo(contentLeft, doc.y).lineTo(contentLeft + contentWidth, doc.y).lineWidth(0.8).strokeColor('#cbd5e1').stroke()
     doc.moveDown(0.5)
     doc.font('Helvetica-Bold').fontSize(11).fillColor('#0f172a').text('Authorized by Indocreonix', {

@@ -76,6 +76,47 @@ function buildEmailQuery(email = "") {
   return { $regex: `^${escapeRegex(normalized)}$`, $options: "i" };
 }
 
+function buildFlexibleEmailFilter(email = "") {
+  const normalized = String(email || "").toLowerCase().trim();
+  if (!normalized) return null;
+
+  const [rawLocalPart = "", rawDomain = ""] = normalized.split("@");
+  const exactFilter = { email: buildEmailQuery(normalized) };
+  if (!rawLocalPart || !rawDomain) return exactFilter;
+
+  if (rawDomain === "gmail.com" || rawDomain === "googlemail.com") {
+    const localWithoutAlias = rawLocalPart.split("+")[0] || rawLocalPart;
+    const normalizedLocal = localWithoutAlias.replace(/\./g, "");
+
+    if (!normalizedLocal) return exactFilter;
+
+    const dottedLocalPattern = normalizedLocal
+      .split("")
+      .map((ch) => escapeRegex(ch))
+      .join("\\.?");
+
+    return {
+      $or: [
+        exactFilter,
+        {
+          email: {
+            $regex: `^\\s*${dottedLocalPattern}(?:\\+[^@\\s]+)?@(?:gmail\\.com|googlemail\\.com)\\s*$`,
+            $options: "i",
+          },
+        },
+      ],
+    };
+  }
+
+  return exactFilter;
+}
+
+function buildPhoneQuery(phone = "") {
+  const normalized = String(phone || "").trim();
+  if (!normalized) return null;
+  return { $regex: `^\\s*${escapeRegex(normalized)}\\s*$`, $options: "i" };
+}
+
 function getPortalSignedDocumentUrl(publicId, resourceType = "raw") {
   if (!publicId) return "";
 
@@ -342,18 +383,45 @@ export const loginOrSignupWithGooglePortal = asyncHandler(async (req, res) => {
 
 export const getMyCareerApplications = asyncHandler(async (req, res) => {
   const user = req.portalUser;
-  const emailQuery = buildEmailQuery(user.email);
-  const items = await CareerApplication.find(
-    emailQuery ? { email: emailQuery } : { email: user.email },
-  )
+  const emailFilter = buildFlexibleEmailFilter(user.email);
+  let items = await CareerApplication.find(emailFilter || { email: user.email })
     .sort({ createdAt: -1 })
     .select("status roleType createdAt adminNotes opportunity offerLetter certificate")
     .populate("opportunity", "title")
     .lean();
 
+  if (!items.length) {
+    const phoneQuery = buildPhoneQuery(user.phone || "");
+    if (phoneQuery) {
+      items = await CareerApplication.find({ phone: phoneQuery })
+        .sort({ createdAt: -1 })
+        .select("status roleType createdAt adminNotes opportunity offerLetter certificate")
+        .populate("opportunity", "title")
+        .lean();
+    }
+  }
+
   const normalizedItems = items.map((item) => {
     const offerApproved = Boolean(item.offerLetter?.isApproved);
     const certificateApproved = Boolean(item.certificate?.isApproved);
+    const offerDownloadUrl =
+      offerApproved && item.offerLetter?.publicId
+        ? getPortalSignedDocumentUrl(
+            item.offerLetter.publicId,
+            item.offerLetter.resourceType || "raw",
+          )
+        : offerApproved
+          ? item.offerLetter?.url || ""
+          : "";
+    const certificateDownloadUrl =
+      certificateApproved && item.certificate?.publicId
+        ? getPortalSignedDocumentUrl(
+            item.certificate.publicId,
+            item.certificate.resourceType || "raw",
+          )
+        : certificateApproved
+          ? item.certificate?.url || ""
+          : "";
 
     return {
       id: String(item._id),
@@ -369,25 +437,13 @@ export const getMyCareerApplications = asyncHandler(async (req, res) => {
         isSent: Boolean(item.offerLetter?.publicId),
         isApproved: offerApproved,
         sentAt: item.offerLetter?.sentAt || null,
-        downloadUrl:
-          offerApproved && item.offerLetter?.publicId
-            ? getPortalSignedDocumentUrl(
-                item.offerLetter.publicId,
-                item.offerLetter.resourceType || "raw",
-              )
-            : "",
+        downloadUrl: offerDownloadUrl,
       },
       certificate: {
         isSent: Boolean(item.certificate?.publicId),
         isApproved: certificateApproved,
         sentAt: item.certificate?.sentAt || null,
-        downloadUrl:
-          certificateApproved && item.certificate?.publicId
-            ? getPortalSignedDocumentUrl(
-                item.certificate.publicId,
-                item.certificate.resourceType || "raw",
-              )
-            : "",
+        downloadUrl: certificateDownloadUrl,
       },
     };
   });

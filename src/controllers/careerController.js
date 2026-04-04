@@ -296,9 +296,9 @@ function buildOfferLetterPdfBuffer(payload) {
       align: 'right',
     })
 
-    doc.moveTo(contentLeft, headerLineY + 54).lineTo(contentLeft + contentWidth, headerLineY + 54).lineWidth(1).strokeColor('#cbd5e1').stroke()
+    doc.moveTo(contentLeft, headerLineY + 32).lineTo(contentLeft + contentWidth, headerLineY + 32).lineWidth(1).strokeColor('#cbd5e1').stroke()
 
-    const recipientY = headerLineY + 66
+    const recipientY = headerLineY + 42
     doc.font('Helvetica').fontSize(11).fillColor('#334155').text('To,', contentLeft, recipientY)
     doc.font('Helvetica-Bold').fontSize(12).fillColor('#111827').text(fullName, contentLeft, recipientY + 16)
     if (payload.candidateAddress) {
@@ -307,7 +307,7 @@ function buildOfferLetterPdfBuffer(payload) {
       })
     }
 
-    doc.y = recipientY + 68
+    doc.y = recipientY + 56
     doc.font('Helvetica-Bold').fontSize(12).fillColor('#0f172a').text(`Subject: Internship Offer - ${roleTitle}`, contentLeft, doc.y, {
       width: contentWidth,
     })

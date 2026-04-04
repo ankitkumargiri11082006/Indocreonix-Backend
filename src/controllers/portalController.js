@@ -117,6 +117,24 @@ function buildPhoneQuery(phone = "") {
   return { $regex: `^\\s*${escapeRegex(normalized)}\\s*$`, $options: "i" };
 }
 
+function normalizeEmailForCompare(email = "") {
+  const normalized = String(email || "").toLowerCase().trim();
+  const [rawLocalPart = "", rawDomain = ""] = normalized.split("@");
+  if (!rawLocalPart || !rawDomain) return normalized;
+
+  if (rawDomain === "gmail.com" || rawDomain === "googlemail.com") {
+    const localWithoutAlias = rawLocalPart.split("+")[0] || rawLocalPart;
+    const normalizedLocal = localWithoutAlias.replace(/\./g, "");
+    return `${normalizedLocal}@gmail.com`;
+  }
+
+  return normalized;
+}
+
+function isSameEmailAddress(left = "", right = "") {
+  return normalizeEmailForCompare(left) === normalizeEmailForCompare(right);
+}
+
 function getPortalSignedDocumentUrl(publicId, resourceType = "raw") {
   if (!publicId) return "";
 
@@ -434,13 +452,13 @@ export const getMyCareerApplications = asyncHandler(async (req, res) => {
         : "",
       notes: item.adminNotes || "Application received and under processing.",
       offerLetter: {
-        isSent: Boolean(item.offerLetter?.publicId),
+        isSent: Boolean(item.offerLetter?.publicId || item.offerLetter?.url),
         isApproved: offerApproved,
         sentAt: item.offerLetter?.sentAt || null,
         downloadUrl: offerDownloadUrl,
       },
       certificate: {
-        isSent: Boolean(item.certificate?.publicId),
+        isSent: Boolean(item.certificate?.publicId || item.certificate?.url),
         isApproved: certificateApproved,
         sentAt: item.certificate?.sentAt || null,
         downloadUrl: certificateDownloadUrl,
@@ -463,24 +481,28 @@ export const getMyCareerApplicationDocuments = asyncHandler(async (req, res) => 
 
   const normalizedApplicationEmail = String(item.email || "").toLowerCase().trim();
   const normalizedUserEmail = String(user.email || "").toLowerCase().trim();
-  if (!normalizedApplicationEmail || normalizedApplicationEmail !== normalizedUserEmail) {
+  if (!normalizedApplicationEmail || !isSameEmailAddress(normalizedApplicationEmail, normalizedUserEmail)) {
     throw new ApiError(403, "You are not authorized to access this document");
   }
 
-  const canDownloadOffer = Boolean(item.offerLetter?.publicId && item.offerLetter?.isApproved);
-  const canDownloadCertificate = Boolean(item.certificate?.publicId && item.certificate?.isApproved);
+  const canDownloadOffer = Boolean((item.offerLetter?.publicId || item.offerLetter?.url) && item.offerLetter?.isApproved);
+  const canDownloadCertificate = Boolean((item.certificate?.publicId || item.certificate?.url) && item.certificate?.isApproved);
 
   res.json({
     offerLetter: {
       canDownload: canDownloadOffer,
       downloadUrl: canDownloadOffer
-        ? getPortalSignedDocumentUrl(item.offerLetter.publicId, item.offerLetter.resourceType || "raw")
+        ? item.offerLetter?.publicId
+          ? getPortalSignedDocumentUrl(item.offerLetter.publicId, item.offerLetter.resourceType || "raw")
+          : item.offerLetter?.url || ""
         : "",
     },
     certificate: {
       canDownload: canDownloadCertificate,
       downloadUrl: canDownloadCertificate
-        ? getPortalSignedDocumentUrl(item.certificate.publicId, item.certificate.resourceType || "raw")
+        ? item.certificate?.publicId
+          ? getPortalSignedDocumentUrl(item.certificate.publicId, item.certificate.resourceType || "raw")
+          : item.certificate?.url || ""
         : "",
     },
   });

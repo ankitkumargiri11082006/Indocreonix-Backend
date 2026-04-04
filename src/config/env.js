@@ -44,6 +44,11 @@ export const env = {
   cloudinaryApiKey: process.env.CLOUDINARY_API_KEY || '',
   cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET || '',
 
+  ga4PropertyId: process.env.GA4_PROPERTY_ID || '',
+  ga4ClientEmail: process.env.GA4_CLIENT_EMAIL || '',
+  ga4PrivateKey: process.env.GA4_PRIVATE_KEY || '',
+  ga4ProjectId: process.env.GA4_PROJECT_ID || '',
+
   // ── Email (Resend) ────────────────────────────────────────────────────────
   emailProvider: String(process.env.EMAIL_PROVIDER || 'resend').trim().toLowerCase(),
   resendApiKey: process.env.RESEND_API_KEY || '',

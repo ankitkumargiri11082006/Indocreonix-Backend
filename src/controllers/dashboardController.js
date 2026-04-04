@@ -9,6 +9,7 @@ import { Service } from '../models/Service.js'
 import { Project } from '../models/Project.js'
 import { Opportunity } from '../models/Opportunity.js'
 import { getCached, setCached } from '../utils/publicCache.js'
+import { fetchGa4Overview } from '../services/ga4Service.js'
 
 function canAccessPermission(user, permissionKey) {
   if (!user) return false
@@ -128,6 +129,13 @@ export const getAnalyticsOverview = asyncHandler(async (_req, res) => {
   const applicationStatusKeys = ['new', 'reviewing', 'shortlisted', 'rejected', 'hired']
   const applicationTypeKeys = ['internship', 'job']
 
+  let ga4 = null
+  try {
+    ga4 = await fetchGa4Overview({ days: 7 })
+  } catch (error) {
+    ga4 = { enabled: false, error: 'GA4 fetch failed' }
+  }
+
   res.json({
     totals: {
       leads: totalLeads,
@@ -145,5 +153,6 @@ export const getAnalyticsOverview = asyncHandler(async (_req, res) => {
       applicationsByStatus: normalizeCounts(applicationStatusKeys, applicationStatusAgg),
       applicationsByType: normalizeCounts(applicationTypeKeys, applicationTypeAgg),
     },
+    ga4,
   })
 })

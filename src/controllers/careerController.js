@@ -337,26 +337,6 @@ function buildOfferLetterPdfBuffer(payload) {
 
     doc.moveDown(0.9)
     doc.text(
-      'Your reporting structure, key responsibilities, and initial goals will be shared by your reporting manager during onboarding to help you begin effectively from day one.',
-      {
-        width: contentWidth,
-        align: 'justify',
-        lineGap: 2,
-      }
-    )
-
-    doc.moveDown(0.8)
-    doc.text(
-      'Performance reviews will be conducted periodically, and any role-related updates will be communicated formally by the company as part of your professional development journey.',
-      {
-        width: contentWidth,
-        align: 'justify',
-        lineGap: 2,
-      }
-    )
-
-    doc.moveDown(0.8)
-    doc.text(
       'Please confirm your acceptance of this offer by replying to the HR team. We look forward to welcoming you to Indocreonix and building a successful professional association together.',
       {
         width: contentWidth,
@@ -372,7 +352,7 @@ function buildOfferLetterPdfBuffer(payload) {
     })
     doc.font('Helvetica').fontSize(11).fillColor('#1f2937')
 
-    doc.moveDown(1.6)
+    doc.moveDown(1.1)
     const summaryY = doc.y
     const summaryHeight = 62
     doc.roundedRect(contentLeft, summaryY, contentWidth, summaryHeight, 6).fillAndStroke('#f8fafc', '#e2e8f0')

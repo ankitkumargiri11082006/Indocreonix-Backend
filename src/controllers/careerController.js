@@ -274,31 +274,26 @@ function buildOfferLetterPdfBuffer(payload) {
     const effectiveDate = formatDateText(joiningDate || new Date())
 
     const contentLeft = doc.page.margins.left
-    const contentTop = doc.page.margins.top
     const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right
-    const headerLineY = contentTop - 6
-    const titleY = headerLineY + 10
-    const refDateY = headerLineY + 38
+    const templateRefRowY = 224
+    const titleY = 254
 
-    doc.moveTo(contentLeft, headerLineY).lineTo(contentLeft + contentWidth, headerLineY).lineWidth(1).strokeColor('#cbd5e1').stroke()
-
-    doc.font('Helvetica-Bold').fontSize(24).fillColor('#0f172a').text('Offer Letter', contentLeft, titleY, {
+    doc.font('Helvetica-Bold').fontSize(22).fillColor('#0f172a').text('Offer Letter', contentLeft, titleY, {
       width: contentWidth,
       align: 'center',
     })
 
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(`Ref No: ${referenceNumber}`, contentLeft, refDateY, {
-      width: Math.floor(contentWidth * 0.56),
+    // Template already prints "REF NO." and "DATE:" labels in header row.
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(referenceNumber, contentLeft + 92, templateRefRowY, {
+      width: Math.floor(contentWidth * 0.46),
       align: 'left',
     })
-    doc.font('Helvetica').fontSize(11).fillColor('#334155').text(`Date: ${effectiveDate}`, contentLeft, refDateY, {
-      width: contentWidth,
+    doc.font('Helvetica').fontSize(10).fillColor('#334155').text(effectiveDate, contentLeft, templateRefRowY, {
+      width: contentWidth - 4,
       align: 'right',
     })
 
-    doc.moveTo(contentLeft, headerLineY + 32).lineTo(contentLeft + contentWidth, headerLineY + 32).lineWidth(1).strokeColor('#cbd5e1').stroke()
-
-    const recipientY = headerLineY + 42
+    const recipientY = titleY + 40
     doc.font('Helvetica').fontSize(11).fillColor('#334155').text('To,', contentLeft, recipientY)
     doc.font('Helvetica-Bold').fontSize(12).fillColor('#111827').text(fullName, contentLeft, recipientY + 16)
     if (payload.candidateAddress) {

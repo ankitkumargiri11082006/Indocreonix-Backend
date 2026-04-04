@@ -345,6 +345,16 @@ function buildOfferLetterPdfBuffer(payload) {
       }
     )
 
+    doc.moveDown(0.8)
+    doc.font('Helvetica').fontSize(11).fillColor('#1f2937').text(
+      'Kindly complete all onboarding formalities and submit required documents before your joining date to ensure a smooth commencement of your engagement.',
+      {
+        width: contentWidth,
+        align: 'justify',
+        lineGap: 2,
+      }
+    )
+
     doc.moveDown(0.6)
     doc.font('Helvetica-Oblique').fontSize(10).fillColor('#475569').text('This offer is subject to company terms, policies, and applicable regulations.', {
       width: contentWidth,

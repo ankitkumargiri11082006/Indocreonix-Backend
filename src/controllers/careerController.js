@@ -227,6 +227,28 @@ function formatDateText(value) {
   })
 }
 
+function createReferenceSuffix(seed) {
+  const text = String(seed || '')
+  let hash = 0
+
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 31 + text.charCodeAt(index)) | 0
+  }
+
+  return (Math.abs(hash) % 900000) + 1000
+}
+
+function buildDocumentReference(application, documentKind) {
+  const roleSeries = application.roleType === 'internship' ? 'INT' : 'JOB'
+  const docSeries = documentKind === 'offer' ? 'OFR' : 'CRT'
+  const year = new Date().getFullYear()
+  const suffix = createReferenceSuffix(
+    `${application._id}|${application.email}|${application.phone}|${application.createdAt}|${documentKind}`
+  )
+
+  return `IND/${roleSeries}/${docSeries}/${year}/${suffix}`
+}
+
 function buildOfferLetterPdfBuffer(payload) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
@@ -240,7 +262,7 @@ function buildOfferLetterPdfBuffer(payload) {
     doc.on('error', reject)
 
     applyCompanyLetterhead(doc)
-    doc.y = LETTERHEAD_SAFE_AREA.top + 8
+    doc.y = LETTERHEAD_SAFE_AREA.top - 10
 
     const fullName = payload.candidateName || 'Candidate'
     const firstName = String(fullName).trim().split(/\s+/)[0] || 'Candidate'
@@ -248,8 +270,8 @@ function buildOfferLetterPdfBuffer(payload) {
     const joiningDate = payload.startDate || 'the agreed date'
     const duration = payload.duration || 'the agreed period'
     const stipend = payload.stipend || 'As discussed'
-    const managerName = payload.managerName || 'Hiring Manager'
-    const managerTitle = payload.managerTitle || 'Human Resources'
+    const referenceNumber = payload.refNumber || 'IND/INT/OFR/0000/1000'
+    const effectiveDate = formatDateText(joiningDate || new Date())
 
     const contentLeft = doc.page.margins.left
     const contentTop = doc.page.margins.top
@@ -264,6 +286,10 @@ function buildOfferLetterPdfBuffer(payload) {
     doc.y += 22
 
     const recipientY = doc.y
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(`Ref No: ${referenceNumber}`, contentLeft, recipientY, {
+      width: contentWidth,
+      align: 'right',
+    })
     doc.font('Helvetica').fontSize(11).fillColor('#334155').text('To,', contentLeft, recipientY)
     doc.font('Helvetica-Bold').fontSize(12).fillColor('#111827').text(fullName, contentLeft, recipientY + 16)
     if (payload.candidateAddress) {
@@ -272,7 +298,7 @@ function buildOfferLetterPdfBuffer(payload) {
       })
     }
 
-    doc.font('Helvetica').fontSize(11).fillColor('#334155').text(`Date: ${formatDateText(new Date())}`, contentLeft, recipientY, {
+    doc.font('Helvetica').fontSize(11).fillColor('#334155').text(`Date: ${effectiveDate}`, contentLeft, recipientY + 16, {
       width: contentWidth,
       align: 'right',
     })
@@ -335,14 +361,16 @@ function buildOfferLetterPdfBuffer(payload) {
       }
     )
 
-    doc.y = summaryY + summaryHeight + 18
-    doc.font('Helvetica').fontSize(11).fillColor('#1f2937').text('Sincerely,')
-    doc.moveDown(0.8)
-    doc.moveTo(contentLeft, doc.y).lineTo(contentLeft + 190, doc.y).lineWidth(0.8).strokeColor('#94a3b8').stroke()
-    doc.moveDown(0.5)
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827').text(managerName)
-    doc.font('Helvetica').fontSize(10).fillColor('#475569').text(managerTitle)
-    doc.text('Indocreonix')
+    doc.y = summaryY + summaryHeight + 16
+    doc.font('Helvetica').fontSize(10).fillColor('#475569').text(
+      'This offer letter is generated on official Indocreonix letterhead. Keep the above reference number for future correspondence.',
+      contentLeft,
+      doc.y,
+      {
+        width: contentWidth,
+        align: 'justify',
+      }
+    )
 
     doc.end()
   })
@@ -362,7 +390,7 @@ function buildCertificatePdfBuffer(payload) {
     doc.on('error', reject)
 
     applyCompanyLetterhead(doc)
-    doc.y = LETTERHEAD_SAFE_AREA.top + 22
+    doc.y = LETTERHEAD_SAFE_AREA.top - 2
 
     const contentLeft = doc.page.margins.left
     const contentTop = doc.page.margins.top
@@ -370,9 +398,13 @@ function buildCertificatePdfBuffer(payload) {
     const fullName = payload.fullName || 'Candidate Name'
     const courseTitle = payload.courseTitle || 'Program'
     const completionDate = payload.completionDate || formatDateText(new Date())
-    const certificateId = payload.certificateId || `CERT-${Date.now()}`
+    const referenceNumber = payload.refNumber || 'IND/INT/CRT/0000/1000'
 
-    doc.font('Helvetica-Bold').fontSize(28).fillColor('#14532d').text('Certificate of Achievement', contentLeft, contentTop, {
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(`Ref No: ${referenceNumber}`, contentLeft, contentTop, {
+      width: contentWidth,
+      align: 'right',
+    })
+    doc.font('Helvetica-Bold').fontSize(28).fillColor('#14532d').text('Certificate of Achievement', contentLeft, contentTop + 16, {
       width: contentWidth,
       align: 'center',
     })
@@ -402,16 +434,9 @@ function buildCertificatePdfBuffer(payload) {
     })
 
     doc.moveDown(1.8)
-    const footerY = doc.y
-    const colWidth = Math.floor(contentWidth / 2)
-
-    doc.font('Helvetica').fontSize(11).fillColor('#334155').text(`Completion Date: ${completionDate}`, contentLeft, footerY, {
-      width: colWidth,
-      align: 'left',
-    })
-    doc.text(`Certificate ID: ${certificateId}`, contentLeft + colWidth, footerY, {
-      width: colWidth,
-      align: 'right',
+    doc.font('Helvetica').fontSize(11).fillColor('#334155').text(`Completion Date: ${completionDate}`, contentLeft, doc.y, {
+      width: contentWidth,
+      align: 'center',
     })
 
     doc.moveDown(1.4)
@@ -437,6 +462,7 @@ function normalizeOfferLetterPayload(application, payload = {}) {
     stipend: String(payload.stipend || existing.stipend || '').trim(),
     managerName: String(payload.managerName || existing.managerName || 'Indocreonix HR').trim(),
     managerTitle: String(payload.managerTitle || existing.managerTitle || 'Human Resources').trim(),
+    refNumber: String(payload.refNumber || existing.refNumber || buildDocumentReference(application, 'offer')).trim(),
   }
 }
 
@@ -447,11 +473,7 @@ function normalizeCertificatePayload(application, payload = {}) {
     fullName: String(payload.fullName || existing.fullName || application.fullName || '').trim(),
     courseTitle: String(payload.courseTitle || existing.courseTitle || application.opportunity?.title || 'Internship Program').trim(),
     completionDate: String(payload.completionDate || existing.completionDate || formatDateText(new Date())).trim(),
-    certificateId: String(
-      payload.certificateId ||
-        existing.certificateId ||
-        `CERT-${new Date().getFullYear()}-${String(application._id).slice(-6).toUpperCase()}`
-    ).trim(),
+    refNumber: String(payload.refNumber || existing.refNumber || existing.certificateId || buildDocumentReference(application, 'certificate')).trim(),
   }
 }
 
@@ -935,6 +957,7 @@ export const sendCertificate = asyncHandler(async (req, res) => {
 
   item.certificate = {
     ...certificatePayload,
+    certificateId: certificatePayload.refNumber,
     publicId: uploaded.public_id,
     resourceType: uploaded.resource_type || 'raw',
     url: uploaded.secure_url || getCloudinaryCvUrl(uploaded.public_id, uploaded.resource_type || 'raw'),
@@ -957,7 +980,7 @@ export const sendCertificate = asyncHandler(async (req, res) => {
 
   await createAuditLog(req, 'SEND_CERTIFICATE', 'CareerApplication', item._id, {
     email: item.email,
-    certificateId: certificatePayload.certificateId,
+    refNumber: certificatePayload.refNumber,
   })
 
   res.json({ message: 'Certificate generated and sent for review', item })
@@ -1014,6 +1037,7 @@ export const deleteOfferLetter = asyncHandler(async (req, res) => {
   await destroyCvAsset(item.offerLetter.publicId, item.offerLetter.resourceType || 'raw')
 
   item.offerLetter = {
+    refNumber: '',
     candidateName: '',
     candidateAddress: '',
     role: '',
@@ -1053,6 +1077,7 @@ export const deleteCertificate = asyncHandler(async (req, res) => {
   await destroyCvAsset(item.certificate.publicId, item.certificate.resourceType || 'raw')
 
   item.certificate = {
+    refNumber: '',
     fullName: '',
     courseTitle: '',
     completionDate: '',

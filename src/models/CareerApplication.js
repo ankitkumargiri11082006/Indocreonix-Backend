@@ -60,6 +60,7 @@ const careerApplicationSchema = new mongoose.Schema(
     onboardingDocsOriginalName: { type: String, default: '' },
     onboardingDocsBytes: { type: Number, default: 0 },
     offerLetter: {
+      refNumber: { type: String, default: '' },
       candidateName: { type: String, default: '' },
       candidateAddress: { type: String, default: '' },
       role: { type: String, default: '' },
@@ -79,6 +80,7 @@ const careerApplicationSchema = new mongoose.Schema(
       approvalNotes: { type: String, default: '' },
     },
     certificate: {
+      refNumber: { type: String, default: '' },
       fullName: { type: String, default: '' },
       courseTitle: { type: String, default: '' },
       completionDate: { type: String, default: '' },

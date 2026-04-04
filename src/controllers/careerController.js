@@ -271,7 +271,7 @@ function buildOfferLetterPdfBuffer(payload) {
     const duration = payload.duration || 'the agreed period'
     const stipend = payload.stipend || 'As discussed'
     const referenceNumber = payload.refNumber || 'IND/INT/OFR/2026/1000'
-    const effectiveDate = formatDateText(joiningDate || new Date())
+    const effectiveDate = formatDateText(new Date())
 
     const contentLeft = doc.page.margins.left
     const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right
@@ -285,11 +285,11 @@ function buildOfferLetterPdfBuffer(payload) {
     })
 
     // Template already prints "REF NO." and "DATE:" labels in header row.
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(referenceNumber, contentLeft + 56, templateRefRowY, {
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(referenceNumber, contentLeft + 20, templateRefRowY, {
       width: Math.floor(contentWidth * 0.46),
       align: 'left',
     })
-    doc.font('Helvetica').fontSize(10).fillColor('#334155').text(effectiveDate, contentLeft, templateRefRowY, {
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(effectiveDate, contentLeft, templateRefRowY, {
       width: contentWidth - 4,
       align: 'right',
     })

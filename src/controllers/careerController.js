@@ -262,7 +262,7 @@ function buildOfferLetterPdfBuffer(payload) {
     doc.on('error', reject)
 
     applyCompanyLetterhead(doc)
-    doc.y = LETTERHEAD_SAFE_AREA.top - 10
+    doc.y = LETTERHEAD_SAFE_AREA.top - 8
 
     const fullName = payload.candidateName || 'Candidate'
     const firstName = String(fullName).trim().split(/\s+/)[0] || 'Candidate'
@@ -276,25 +276,29 @@ function buildOfferLetterPdfBuffer(payload) {
     const contentLeft = doc.page.margins.left
     const contentTop = doc.page.margins.top
     const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right
-    const headerLineY = contentTop - 4
+    const headerLineY = contentTop - 6
+    const titleY = headerLineY + 10
+    const refDateY = headerLineY + 38
 
     doc.moveTo(contentLeft, headerLineY).lineTo(contentLeft + contentWidth, headerLineY).lineWidth(1).strokeColor('#cbd5e1').stroke()
 
-    doc.font('Helvetica-Bold').fontSize(24).fillColor('#0f172a').text('Offer Letter', contentLeft, headerLineY + 8, {
+    doc.font('Helvetica-Bold').fontSize(24).fillColor('#0f172a').text('Offer Letter', contentLeft, titleY, {
       width: contentWidth,
       align: 'center',
     })
 
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(`Ref No: ${referenceNumber}`, contentLeft, headerLineY + 10, {
-      width: contentWidth,
-      align: 'right',
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(`Ref No: ${referenceNumber}`, contentLeft, refDateY, {
+      width: Math.floor(contentWidth * 0.56),
+      align: 'left',
     })
-    doc.font('Helvetica').fontSize(11).fillColor('#334155').text(`Date: ${effectiveDate}`, contentLeft, headerLineY + 24, {
+    doc.font('Helvetica').fontSize(11).fillColor('#334155').text(`Date: ${effectiveDate}`, contentLeft, refDateY, {
       width: contentWidth,
       align: 'right',
     })
 
-    const recipientY = headerLineY + 54
+    doc.moveTo(contentLeft, headerLineY + 54).lineTo(contentLeft + contentWidth, headerLineY + 54).lineWidth(1).strokeColor('#cbd5e1').stroke()
+
+    const recipientY = headerLineY + 66
     doc.font('Helvetica').fontSize(11).fillColor('#334155').text('To,', contentLeft, recipientY)
     doc.font('Helvetica-Bold').fontSize(12).fillColor('#111827').text(fullName, contentLeft, recipientY + 16)
     if (payload.candidateAddress) {

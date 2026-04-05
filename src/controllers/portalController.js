@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/apiError.js";
 import { env } from "../config/env.js";
@@ -7,12 +8,23 @@ import { PortalAccount } from "../models/PortalAccount.js";
 import { CareerApplication } from "../models/CareerApplication.js";
 import { ProjectOrder } from "../models/ProjectOrder.js";
 import { signPortalToken } from "../middlewares/portalAuth.js";
-import { sendPortalOtpEmail } from "../utils/emailService.js";
+import { sendPasswordResetOtpEmail, sendPortalOtpEmail } from "../utils/emailService.js";
 import { verifyGoogleIdToken } from "../utils/googleAuth.js";
 
 const OTP_EXPIRES_MINUTES = Number(
   process.env.PORTAL_OTP_EXPIRES_MINUTES || 10,
 );
+
+const PORTAL_RESET_OTP_EXPIRES_MINUTES = Number(
+  process.env.PORTAL_RESET_OTP_EXPIRES_MINUTES || 10,
+);
+const PORTAL_RESET_TOKEN_EXPIRES_MINUTES = Number(
+  process.env.PORTAL_RESET_TOKEN_EXPIRES_MINUTES || 15,
+);
+
+function hashToken(token = "") {
+  return crypto.createHash("sha256").update(String(token)).digest("hex");
+}
 
 function normalizeTrackInput(track) {
   const normalized = String(track || "both").toLowerCase();
@@ -328,7 +340,9 @@ export const loginPortal = asyncHandler(async (req, res) => {
   const normalizedEmail = String(email).toLowerCase().trim();
   const account = await PortalAccount.findOne({
     email: normalizedEmail,
-  }).select("+password");
+  }).select(
+    "+password +failedLoginAttempts +passwordResetRequired +passwordResetOtpHash +passwordResetOtpExpiresAt",
+  );
 
   if (!account) {
     throw new ApiError(401, "Invalid credentials");
@@ -345,11 +359,30 @@ export const loginPortal = asyncHandler(async (req, res) => {
     );
   }
 
-  const isPasswordValid = await account.comparePassword(password);
-  if (!isPasswordValid) {
-    throw new ApiError(401, "Invalid credentials");
+  if (account.passwordResetRequired) {
+    throw new ApiError(
+      403,
+      "Password reset required. Please reset your password to continue.",
+    );
   }
 
+  const isPasswordValid = await account.comparePassword(password);
+  if (!isPasswordValid) {
+    account.failedLoginAttempts = Number(account.failedLoginAttempts || 0) + 1;
+    if (account.failedLoginAttempts >= 3) {
+      account.passwordResetRequired = true;
+    }
+    await account.save();
+    throw new ApiError(
+      account.passwordResetRequired ? 403 : 401,
+      account.passwordResetRequired
+        ? "Too many incorrect attempts. Password reset is required."
+        : "Invalid credentials",
+    );
+  }
+
+  account.failedLoginAttempts = 0;
+  account.passwordResetRequired = false;
   account.lastLoginAt = new Date();
   await account.save();
 
@@ -360,6 +393,122 @@ export const loginPortal = asyncHandler(async (req, res) => {
     token,
     user: sanitizePortalUser(account),
   });
+});
+
+export const forgotPortalPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    throw new ApiError(400, "Email is required");
+  }
+
+  const normalizedEmail = String(email).toLowerCase().trim();
+  const account = await PortalAccount.findOne({ email: normalizedEmail }).select(
+    "+passwordResetOtpHash +passwordResetOtpExpiresAt",
+  );
+
+  // Prevent account enumeration
+  if (!account || !account.isActive) {
+    return res.json({ message: "If an account exists, an OTP has been sent." });
+  }
+
+  const otp = createOtpCode();
+  account.passwordResetOtpHash = await bcrypt.hash(otp, 12);
+  account.passwordResetOtpExpiresAt = new Date(
+    Date.now() + PORTAL_RESET_OTP_EXPIRES_MINUTES * 60 * 1000,
+  );
+  await account.save();
+
+  await sendPasswordResetOtpEmail(normalizedEmail, {
+    name: account.name,
+    otp,
+    expiresInMinutes: PORTAL_RESET_OTP_EXPIRES_MINUTES,
+    audience: "portal account",
+  });
+
+  res.json({ message: "OTP sent to your email address" });
+});
+
+export const verifyPortalForgotOtp = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    throw new ApiError(400, "Email and OTP are required");
+  }
+
+  const normalizedEmail = String(email).toLowerCase().trim();
+  const account = await PortalAccount.findOne({ email: normalizedEmail }).select(
+    "+passwordResetOtpHash +passwordResetOtpExpiresAt +passwordResetTokenHash +passwordResetTokenExpiresAt",
+  );
+
+  if (!account || !account.passwordResetOtpHash || !account.passwordResetOtpExpiresAt) {
+    throw new ApiError(400, "OTP is not generated or has expired. Request a new OTP.");
+  }
+
+  if (account.passwordResetOtpExpiresAt.getTime() < Date.now()) {
+    account.passwordResetOtpHash = "";
+    account.passwordResetOtpExpiresAt = null;
+    await account.save();
+    throw new ApiError(400, "OTP has expired. Request a new OTP.");
+  }
+
+  const isOtpValid = await bcrypt.compare(String(otp), account.passwordResetOtpHash);
+  if (!isOtpValid) {
+    throw new ApiError(401, "Invalid OTP code");
+  }
+
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  account.passwordResetTokenHash = hashToken(resetToken);
+  account.passwordResetTokenExpiresAt = new Date(
+    Date.now() + PORTAL_RESET_TOKEN_EXPIRES_MINUTES * 60 * 1000,
+  );
+  account.passwordResetOtpHash = "";
+  account.passwordResetOtpExpiresAt = null;
+  await account.save();
+
+  res.json({ resetToken });
+});
+
+export const resetPortalPassword = asyncHandler(async (req, res) => {
+  const { email, resetToken, newPassword } = req.body;
+
+  if (!email || !resetToken || !newPassword) {
+    throw new ApiError(400, "Email, resetToken and newPassword are required");
+  }
+
+  if (String(newPassword).length < 6) {
+    throw new ApiError(400, "Password must be at least 6 characters");
+  }
+
+  const normalizedEmail = String(email).toLowerCase().trim();
+  const account = await PortalAccount.findOne({ email: normalizedEmail }).select(
+    "+password +passwordResetTokenHash +passwordResetTokenExpiresAt +failedLoginAttempts +passwordResetRequired",
+  );
+
+  if (!account || !account.passwordResetTokenHash || !account.passwordResetTokenExpiresAt) {
+    throw new ApiError(400, "Reset token is invalid or expired. Please restart the reset process.");
+  }
+
+  if (account.passwordResetTokenExpiresAt.getTime() < Date.now()) {
+    account.passwordResetTokenHash = "";
+    account.passwordResetTokenExpiresAt = null;
+    await account.save();
+    throw new ApiError(400, "Reset token has expired. Please restart the reset process.");
+  }
+
+  const isTokenValid = hashToken(resetToken) === account.passwordResetTokenHash;
+  if (!isTokenValid) {
+    throw new ApiError(401, "Invalid reset token");
+  }
+
+  account.password = String(newPassword);
+  account.passwordResetTokenHash = "";
+  account.passwordResetTokenExpiresAt = null;
+  account.passwordResetRequired = false;
+  account.failedLoginAttempts = 0;
+  await account.save();
+
+  res.json({ message: "Password reset successful" });
 });
 
 export const loginOrSignupWithGooglePortal = asyncHandler(async (req, res) => {
@@ -385,6 +534,13 @@ export const loginOrSignupWithGooglePortal = asyncHandler(async (req, res) => {
     requestedTrack: track,
     allowCreate: true,
   });
+
+  if (account.passwordResetRequired) {
+    throw new ApiError(
+      403,
+      "Password reset required. Please reset your password to continue.",
+    );
+  }
 
   const token = signPortalToken(account._id.toString());
 
@@ -585,7 +741,9 @@ export const updateMyPortalProfile = asyncHandler(async (req, res) => {
 export const getPortalUsersAdmin = asyncHandler(async (_req, res) => {
   const items = await PortalAccount.find()
     .sort({ createdAt: -1 })
-    .select("-otpCodeHash -otpExpiresAt -password")
+    .select(
+      "-otpCodeHash -otpExpiresAt -password -passwordResetOtpHash -passwordResetOtpExpiresAt -passwordResetTokenHash -passwordResetTokenExpiresAt",
+    )
     .lean();
 
   res.json({
@@ -602,6 +760,8 @@ export const getPortalUsersAdmin = asyncHandler(async (_req, res) => {
       access: item.access,
       isEmailVerified: item.isEmailVerified,
       isActive: item.isActive,
+      failedLoginAttempts: item.failedLoginAttempts || 0,
+      passwordResetRequired: Boolean(item.passwordResetRequired),
       lastLoginAt: item.lastLoginAt,
       createdAt: item.createdAt,
     })),
@@ -715,7 +875,9 @@ export const updatePortalUserAdmin = asyncHandler(async (req, res) => {
 
 export const getPortalUserDetailsAdmin = asyncHandler(async (req, res) => {
   const portalUser = await PortalAccount.findById(req.params.id)
-    .select("-otpCodeHash -otpExpiresAt -password")
+    .select(
+      "-otpCodeHash -otpExpiresAt -password -passwordResetOtpHash -passwordResetOtpExpiresAt -passwordResetTokenHash -passwordResetTokenExpiresAt",
+    )
     .lean();
 
   if (!portalUser) {

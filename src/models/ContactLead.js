@@ -21,11 +21,31 @@ const contactLeadSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    ip: {
+      type: String,
+      default: '',
+      trim: true,
+      index: true,
+    },
+    userAgent: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    antiAbuseId: {
+      type: String,
+      default: '',
+      trim: true,
+      index: true,
+    },
   },
   { timestamps: true }
 )
 
 contactLeadSchema.index({ status: 1, createdAt: -1 })
+contactLeadSchema.index({ email: 1, createdAt: -1 })
+contactLeadSchema.index({ ip: 1, createdAt: -1 })
+contactLeadSchema.index({ antiAbuseId: 1, createdAt: -1 })
 contactLeadSchema.index({ createdAt: -1 })
 
 export const ContactLead = mongoose.model('ContactLead', contactLeadSchema)

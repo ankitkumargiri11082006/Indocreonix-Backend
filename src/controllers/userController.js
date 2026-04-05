@@ -94,7 +94,11 @@ function uploadAvatarToCloudinary(fileBuffer, originalname) {
 }
 
 export const getUsers = asyncHandler(async (_req, res) => {
-  const users = await User.find().sort({ createdAt: -1 }).select('-password')
+  const users = await User.find()
+    .sort({ createdAt: -1 })
+    .select(
+      '-password -passwordResetOtpHash -passwordResetOtpExpiresAt -passwordResetTokenHash -passwordResetTokenExpiresAt'
+    )
   res.json({ users })
 })
 

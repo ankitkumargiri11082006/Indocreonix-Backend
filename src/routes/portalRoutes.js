@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   deletePortalUserAdmin,
+  forgotPortalPassword,
   getMyCareerApplications,
   getMyCareerApplicationDocuments,
   getMyProjects,
@@ -10,22 +11,33 @@ import {
   getPortalUsersAdmin,
   loginOrSignupWithGooglePortal,
   loginPortal,
+  resetPortalPassword,
   sendPortalOtp,
   updateMyPortalProfile,
   updatePortalCareerApplicationAdmin,
   updatePortalProjectAdmin,
   updatePortalUserAdmin,
+  verifyPortalForgotOtp,
   verifyPortalOtpAndRegister,
 } from "../controllers/portalController.js";
 import { permit, protect, requirePermission } from "../middlewares/auth.js";
 import { protectPortalUser } from "../middlewares/portalAuth.js";
+import { portalAuthLimiter, portalOtpLimiter } from "../middlewares/rateLimiters.js";
 
 const router = Router();
 
-router.post("/auth/send-otp", sendPortalOtp);
-router.post("/auth/verify-otp-register", verifyPortalOtpAndRegister);
-router.post("/auth/login", loginPortal);
-router.post("/auth/google", loginOrSignupWithGooglePortal);
+router.post("/auth/send-otp", portalOtpLimiter, sendPortalOtp);
+router.post(
+  "/auth/verify-otp-register",
+  portalOtpLimiter,
+  verifyPortalOtpAndRegister,
+);
+router.post("/auth/login", portalAuthLimiter, loginPortal);
+router.post("/auth/google", portalAuthLimiter, loginOrSignupWithGooglePortal);
+
+router.post("/forgot-password", portalOtpLimiter, forgotPortalPassword);
+router.post("/verify-forgot-otp", portalOtpLimiter, verifyPortalForgotOtp);
+router.post("/reset-password", portalAuthLimiter, resetPortalPassword);
 
 router.get(
   "/career/applications/me",

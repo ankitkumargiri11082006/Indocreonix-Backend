@@ -95,11 +95,31 @@ const careerApplicationSchema = new mongoose.Schema(
       approvedByEmail: { type: String, default: '' },
       approvalNotes: { type: String, default: '' },
     },
+    ip: {
+      type: String,
+      default: '',
+      trim: true,
+      index: true,
+    },
+    userAgent: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    antiAbuseId: {
+      type: String,
+      default: '',
+      trim: true,
+      index: true,
+    },
   },
   { timestamps: true }
 )
 
 careerApplicationSchema.index({ roleType: 1, status: 1, createdAt: -1 })
+careerApplicationSchema.index({ email: 1, createdAt: -1 })
+careerApplicationSchema.index({ ip: 1, createdAt: -1 })
+careerApplicationSchema.index({ antiAbuseId: 1, createdAt: -1 })
 careerApplicationSchema.index({ createdAt: -1 })
 
 export const CareerApplication = mongoose.model('CareerApplication', careerApplicationSchema)

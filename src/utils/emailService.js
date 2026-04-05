@@ -516,6 +516,46 @@ export async function sendPortalOtpEmail(to, data) {
   })
 }
 
+// ─── Password reset OTP (Admin + Portal) ───────────────────────────────────
+
+export function buildPasswordResetOtpEmail({ name, otp, expiresInMinutes, audience = 'account' }) {
+  const subject = `Password Reset OTP — ${BRAND}`
+  const preview = `Hi ${name || 'there'}, your password reset OTP is ${otp}. It expires in ${expiresInMinutes} minutes.`
+
+  const body = `
+  ${header('Password Reset')}
+  <div class="tag-strip"><span class="tag">Security</span><span class="tag" style="background:${COLOR.warnBg};color:${COLOR.tagText};border-color:${COLOR.warnBdr}22">OTP</span></div>
+  <div class="content" style="padding:28px 44px 10px">
+    <h1 style="font-size:22px;line-height:1.2;margin:0;color:${COLOR.bodyText}">Reset your ${audience}</h1>
+    <p style="margin:12px 0 0;color:${COLOR.mutedText};line-height:1.6;font-size:14px">
+      Use the OTP below to continue your password reset. This code expires in <strong>${expiresInMinutes} minutes</strong>.
+    </p>
+
+    <div style="margin:18px 0 0;padding:16px 18px;border-radius:14px;border:1px solid ${COLOR.border};background:${COLOR.rowEven}">
+      <div style="font-size:12px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:${COLOR.mutedText}">One-time code</div>
+      <div style="margin-top:10px;font-size:28px;font-weight:800;letter-spacing:4px;color:${COLOR.bodyText}">${otp}</div>
+    </div>
+
+    <p style="margin:14px 0 0;color:${COLOR.mutedText};line-height:1.6;font-size:13px">
+      If you didn’t request this, you can ignore this email. For security, we recommend changing your password if you suspect suspicious activity.
+    </p>
+  </div>
+  ${footer()}
+  `
+
+  return { subject, html: shell(preview, body) }
+}
+
+export async function sendPasswordResetOtpEmail(to, data) {
+  const { subject, html } = buildPasswordResetOtpEmail(data)
+  return sendMail({
+    to,
+    subject,
+    html,
+    from: `"${BRAND} Security" <${getSenderAddress('info')}>`,
+  })
+}
+
 /**
  * Career application — smart dispatcher
  * Sends the correct template (job vs internship) based on roleType

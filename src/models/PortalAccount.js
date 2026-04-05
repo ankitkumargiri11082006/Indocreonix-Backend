@@ -73,6 +73,34 @@ const portalAccountSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    passwordResetRequired: {
+      type: Boolean,
+      default: false,
+    },
+    passwordResetOtpHash: {
+      type: String,
+      default: "",
+      select: false,
+    },
+    passwordResetOtpExpiresAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
+    passwordResetTokenHash: {
+      type: String,
+      default: "",
+      select: false,
+    },
+    passwordResetTokenExpiresAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
     otpCodeHash: {
       type: String,
       default: "",

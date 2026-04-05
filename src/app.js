@@ -3,7 +3,6 @@ import helmet from "helmet";
 import cors from "cors";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
-import rateLimit from "express-rate-limit";
 import { env } from "./config/env.js";
 import authRoutes from "./routes/authRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
@@ -19,6 +18,7 @@ import auditRoutes from "./routes/auditRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import portalRoutes from "./routes/portalRoutes.js";
 import { errorHandler, notFound } from "./middlewares/errorHandler.js";
+import { apiLimiter } from "./middlewares/rateLimiters.js";
 
 const app = express();
 
@@ -89,14 +89,25 @@ app.use("/api", (_req, res, next) => {
   next();
 });
 
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 300,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.use("/api", limiter);
+app.use(
+  [
+    "/api",
+    "/auth",
+    "/dashboard",
+    "/settings",
+    "/media",
+    "/users",
+    "/leads",
+    "/services",
+    "/clients",
+    "/projects",
+    "/careers",
+    "/audit-logs",
+    "/orders",
+    "/portal",
+  ],
+  apiLimiter,
+);
 
 app.get("/", (_req, res) => {
   res.json({

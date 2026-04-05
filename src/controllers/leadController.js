@@ -10,7 +10,39 @@ export const createLead = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Name, email and message are required')
   }
 
-  const lead = await ContactLead.create({ name, email, phone, company, message })
+  const normalizedEmail = String(email).toLowerCase().trim()
+  const ip = String(req.ip || '').trim()
+  const userAgent = String(req.get('user-agent') || '').trim()
+  const antiAbuseId = String(req.antiAbuseId || req.cookies?.ic_ab || '').trim()
+
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+  const [emailCount, ipCount, cookieCount] = await Promise.all([
+    ContactLead.countDocuments({ email: normalizedEmail, createdAt: { $gte: since } }),
+    ip ? ContactLead.countDocuments({ ip, createdAt: { $gte: since } }) : Promise.resolve(0),
+    antiAbuseId
+      ? ContactLead.countDocuments({ antiAbuseId, createdAt: { $gte: since } })
+      : Promise.resolve(0),
+  ])
+
+  const MAX_SUBMISSIONS_PER_DAY = 5
+  if (
+    emailCount >= MAX_SUBMISSIONS_PER_DAY ||
+    ipCount >= MAX_SUBMISSIONS_PER_DAY ||
+    cookieCount >= MAX_SUBMISSIONS_PER_DAY
+  ) {
+    throw new ApiError(429, 'Too many submissions. Please try again later.')
+  }
+
+  const lead = await ContactLead.create({
+    name,
+    email: normalizedEmail,
+    phone,
+    company,
+    message,
+    ip,
+    userAgent,
+    antiAbuseId,
+  })
 
   // ── Fire-and-forget emails ───────────────────────────────────────────────
   const emailData = { name, email, phone, company, message }

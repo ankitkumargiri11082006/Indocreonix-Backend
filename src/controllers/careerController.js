@@ -588,6 +588,30 @@ export const submitApplication = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Please fill all required fields')
   }
 
+  const normalizedEmail = String(email).toLowerCase().trim()
+  const ip = String(req.ip || '').trim()
+  const userAgent = String(req.get('user-agent') || '').trim()
+  const antiAbuseId = String(req.antiAbuseId || req.cookies?.ic_ab || '').trim()
+
+  // Prevent repeated spam submissions (privacy-respecting: based on IP + email)
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+  const [emailCount, ipCount, cookieCount] = await Promise.all([
+    CareerApplication.countDocuments({ email: normalizedEmail, createdAt: { $gte: since } }),
+    ip ? CareerApplication.countDocuments({ ip, createdAt: { $gte: since } }) : Promise.resolve(0),
+    antiAbuseId
+      ? CareerApplication.countDocuments({ antiAbuseId, createdAt: { $gte: since } })
+      : Promise.resolve(0),
+  ])
+
+  const MAX_SUBMISSIONS_PER_DAY = 5
+  if (
+    emailCount >= MAX_SUBMISSIONS_PER_DAY ||
+    ipCount >= MAX_SUBMISSIONS_PER_DAY ||
+    cookieCount >= MAX_SUBMISSIONS_PER_DAY
+  ) {
+    throw new ApiError(429, 'Too many applications submitted. Please try again later.')
+  }
+
   if (!req.file) {
     throw new ApiError(400, 'CV PDF is required')
   }
@@ -604,7 +628,7 @@ export const submitApplication = asyncHandler(async (req, res) => {
     roleType,
     opportunity: opportunityId || null,
     fullName,
-    email,
+    email: normalizedEmail,
     phone,
     city,
     qualification,
@@ -619,6 +643,9 @@ export const submitApplication = asyncHandler(async (req, res) => {
     cvResourceType: uploaded.resource_type || 'image',
     cvOriginalName: req.file.originalname,
     cvBytes: req.file.size,
+    ip,
+    userAgent,
+    antiAbuseId,
   })
 
   // ── Fire-and-forget emails ───────────────────────────────────────────────
@@ -741,6 +768,8 @@ export const exportApplicationsCsv = asyncHandler(async (req, res) => {
     'Portfolio',
     'Status',
     'CV URL',
+    'IP',
+    'User Agent',
     'Admin Notes',
     'Applied At',
   ]
@@ -758,6 +787,8 @@ export const exportApplicationsCsv = asyncHandler(async (req, res) => {
     item.portfolio,
     item.status,
     item.cvUrl,
+    item.ip || '',
+    item.userAgent || '',
     item.adminNotes,
     item.createdAt ? new Date(item.createdAt).toISOString() : '',
   ])

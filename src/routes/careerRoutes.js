@@ -22,6 +22,8 @@ import {
 } from '../controllers/careerController.js'
 import { permit, protect, requirePermission } from '../middlewares/auth.js'
 import { uploadCvPdf, uploadOnboardingDocs } from '../middlewares/upload.js'
+import { careerApplicationLimiter, onboardingDocsLimiter } from '../middlewares/rateLimiters.js'
+import { antiAbuseCookie } from '../middlewares/antiAbuseCookie.js'
 
 const router = Router()
 
@@ -31,8 +33,8 @@ router.post('/opportunities', protect, permit('admin', 'editor'), requirePermiss
 router.put('/opportunities/:id', protect, permit('admin', 'editor'), requirePermission('openings'), updateOpportunity)
 router.delete('/opportunities/:id', protect, permit('admin'), requirePermission('openings'), deleteOpportunity)
 
-router.post('/applications', uploadCvPdf.single('cv'), submitApplication)
-router.post('/applications/:id/submit-onboarding-docs', uploadOnboardingDocs, submitOnboardingDocs)
+router.post('/applications', antiAbuseCookie, careerApplicationLimiter, uploadCvPdf.single('cv'), submitApplication)
+router.post('/applications/:id/submit-onboarding-docs', onboardingDocsLimiter, uploadOnboardingDocs, submitOnboardingDocs)
 router.get('/applications', protect, permit('admin', 'editor'), requirePermission('applications'), getApplications)
 router.get('/applications/export.csv', protect, permit('admin', 'editor'), requirePermission('applications'), exportApplicationsCsv)
 router.patch('/applications/:id', protect, permit('admin', 'editor'), requirePermission('applications'), updateApplicationStatus)

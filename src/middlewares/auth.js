@@ -48,6 +48,10 @@ export function requirePermission(permissionKey) {
       return next()
     }
 
+    if (permissionKey === 'portalControl' && req.user.role === 'admin') {
+      return next()
+    }
+
     if (req.user.role !== 'admin') {
       return next(new ApiError(403, 'Forbidden'))
     }

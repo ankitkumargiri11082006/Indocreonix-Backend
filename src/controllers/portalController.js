@@ -805,7 +805,34 @@ export const getPortalCareerApplicationsAdmin = asyncHandler(
       .populate("opportunity", "title")
       .lean();
 
-    res.json({ items });
+    const normalizedItems = items.map((item) => {
+      const offerDownloadUrl = item.offerLetter?.publicId
+        ? getPortalSignedDocumentUrl(
+            item.offerLetter.publicId,
+            item.offerLetter.resourceType || "raw",
+          )
+        : item.offerLetter?.url || "";
+      const certificateDownloadUrl = item.certificate?.publicId
+        ? getPortalSignedDocumentUrl(
+            item.certificate.publicId,
+            item.certificate.resourceType || "raw",
+          )
+        : item.certificate?.url || "";
+
+      return {
+        ...item,
+        offerLetter: {
+          ...item.offerLetter,
+          downloadUrl: offerDownloadUrl,
+        },
+        certificate: {
+          ...item.certificate,
+          downloadUrl: certificateDownloadUrl,
+        },
+      };
+    });
+
+    res.json({ items: normalizedItems });
   },
 );
 

@@ -139,14 +139,13 @@ function getPortalSignedDocumentUrl(publicId, resourceType = "raw") {
   if (!publicId) return "";
 
   const expiresAt = Math.floor(Date.now() / 1000) + 60 * 30;
-  return cloudinary.url(publicId, {
+
+  return cloudinary.utils.private_download_url(publicId, "pdf", {
     resource_type: resourceType,
     type: "upload",
     secure: true,
-    sign_url: true,
     expires_at: expiresAt,
     attachment: true,
-    format: "pdf",
   });
 }
 

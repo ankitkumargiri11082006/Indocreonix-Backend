@@ -15,6 +15,7 @@ const defaultCorsOrigins = [
   'http://127.0.0.1:5173',
   'https://indocreonix.com',
   'https://www.indocreonix.com',
+  'https://*.vercel.app',
   'https://*.netlify.app',
 ]
 
